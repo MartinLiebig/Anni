@@ -1,0 +1,7 @@
+# Never serve local config backups or SQL dumps if they end up in the web root.
+<FilesMatch "\.(sql|local\.php|example|md|log|pgn|tsv)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>
+Options -Indexes

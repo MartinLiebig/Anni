@@ -1,0 +1,12 @@
+<?php
+// Copy to config.local.php on the server and fill in. Never commit or share config.local.php.
+return [
+  // Strato: host/name/user/password are shown in the customer portal under Datenbanken (MySQL).
+  'db_dsn'  => 'mysql:host=DATABASE_HOST;dbname=DATABASE_NAME;charset=utf8mb4',
+  'db_user' => 'DATABASE_USER',
+  'db_pass' => 'DATABASE_PASSWORD',
+  'secure_cookie' => true,                       // site is served over HTTPS
+  'public_url' => 'https://anni.sv-bottrop21.de',
+  // Optional Google login:
+  // 'google_client_id' => '', 'google_client_secret' => '',
+];

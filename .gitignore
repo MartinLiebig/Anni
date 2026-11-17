@@ -1,0 +1,36 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# PHP local config overrides (contain credentials)
+public/api/config.local.php
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# PGN data files (large, fetched via fetch_lichess.sh)
+data/*.pgn
+# Keep sample and non-fetched files
+!data/sample_round.pgn
+!data/openings.tsv
+!data/lumbra_candidates.pgn.events.tsv
+!data/lumbra_selected.pgn
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node (if ever added)
+node_modules/
+
+# PHP cache
+*.cache
