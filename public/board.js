@@ -13,6 +13,7 @@ export class Board {
     this.state = { fen: new Chess().fen(), orientation: 'w', lastMove: null, interactive: false, hint: null };
     this.selected = null;
     this.drag = null;
+    this._promoCancel = null;
     el.classList.add('board');
     el.addEventListener('pointerdown', (e) => this.#down(e));
     el.addEventListener('pointermove', (e) => this.#move(e));
@@ -22,7 +23,11 @@ export class Board {
 
   set(patch) {
     Object.assign(this.state, patch);
-    if (patch.fen !== undefined) { this.selected = null; this.#cancelDrag(false); }
+    if (patch.fen !== undefined) {
+      if (this._promoCancel) this._promoCancel();
+      this.selected = null;
+      this.#cancelDrag(false);
+    }
     this.render();
   }
 
@@ -114,16 +119,26 @@ export class Board {
   }
 
   #askPromotion(toSq, color) {
+    if (this._promoCancel) this._promoCancel();
     return new Promise((resolve) => {
       this.render();
       const o = document.createElement('div');
       o.className = 'promo';
+      const onKey = (e) => { if (e.key === 'Escape') done(null); };
       const away = (e) => { if (!o.contains(e.target)) done(null); };
-      const done = (v) => { document.removeEventListener('pointerdown', away, true); o.remove(); resolve(v); };
+      const done = (v) => {
+        this._promoCancel = null;
+        document.removeEventListener('pointerdown', away, true);
+        document.removeEventListener('keydown', onKey);
+        o.remove();
+        resolve(v);
+      };
+      this._promoCancel = () => done(null);
       o.innerHTML = ['q', 'r', 'b', 'n'].map((p) => `<button type="button" data-p="${p}" class="pc ${color}">${GLYPH[p]}</button>`).join('');
       o.addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); done(b ? b.dataset.p : null); });
       this.el.appendChild(o);
       document.addEventListener('pointerdown', away, true);
+      document.addEventListener('keydown', onKey);
     });
   }
 

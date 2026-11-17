@@ -11,13 +11,8 @@ public/api/config.local.php
 .AppleDouble
 .LSOverride
 
-# PGN data files (large, fetched via fetch_lichess.sh)
-data/*.pgn
-# Keep sample and non-fetched files
-!data/sample_round.pgn
-!data/openings.tsv
-!data/lumbra_candidates.pgn.events.tsv
-!data/lumbra_selected.pgn
+# Data directory (large files, fetched via fetch_lichess.sh / import scripts)
+data/
 
 # Logs
 *.log

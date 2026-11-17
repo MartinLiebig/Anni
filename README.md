@@ -22,8 +22,8 @@ The first registered user becomes admin. DB credentials: `public/api/config.php`
 - `tools/` – `schema.sql`, `import_pgn.php` (games/openings), `fetch_lichess.sh`
 - `data/` – ECO list and downloaded PGNs
 
-## Known limits (prototype)
-- Click-to-move only (no drag), promotions are always queen.
+## Features & Known limits
+- Interactive board supports click-to-move, drag-and-drop, and underpromotion picker (Queen, Rook, Bishop, Knight).
 - Registration is open; no password reset or email verification.
 - Only Lichess broadcast PGNs were tested as source.
 
