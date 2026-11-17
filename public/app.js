@@ -8,6 +8,7 @@ let csrf = '';
 let user = null;
 let googleEnabled = false;
 let showComments = localStorage.getItem('showComments') !== '0'; // collapse/expand comments in move lists
+let onlyDecisive = localStorage.getItem('only_decisive') === '1'; // filter games to 1-0 and 0-1 results only
 let viewId = 0;          // incremented on each navigation; async callbacks compare to drop stale work
 let cleanup = null;      // per-view teardown (key handlers, pending saves)
 
@@ -136,6 +137,7 @@ async function viewOpenings(my) {
       <strong>${t('filter_title')}</strong>
       <label>${t('min_gap')} <input id="gap" type="number" min="0" max="1500" step="50" value="${user.min_gap}"></label>
       <label>${t('min_rating')} <input id="rat" type="number" min="0" max="3000" step="50" value="${user.min_rating}"></label>
+      <label class="chk"><input id="decisive_pref" type="checkbox" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')}</label>
     </div>
     <div class="row">
       <input id="q" type="search" placeholder="${t('search')}">
@@ -220,6 +222,8 @@ async function viewOpenings(my) {
     await api('set_openings', { body: { ecos: [...sel] } });
     const r = await api('settings', { body: { lang: getLang(), min_gap: +$('gap').value || 0, min_rating: +$('rat').value || 0 } });
     user = r.user;
+    onlyDecisive = $('decisive_pref').checked;
+    localStorage.setItem('only_decisive', onlyDecisive ? '1' : '0');
     $('st').textContent = t('saved');
   };
   draw();
@@ -244,14 +248,20 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     }
     if (!game) resume = null;
   }
-  if (!game) ({ game } = await api('next_game', { params: { skip, ...(repeat ? { repeat: 1 } : {}) } }));
+  if (!game) ({ game } = await api('next_game', { params: { skip, ...(repeat ? { repeat: 1 } : {}), ...(onlyDecisive ? { decisive: 1 } : {}) } }));
   if (my !== viewId) return;
   if (!game) {
     localStorage.removeItem(key);
     const main = shell(`<p>${t('no_games')}</p>
       <p><label><input type="checkbox" id="rep"> ${t('repeat_games')}</label></p>
+      <p><label class="chk"><input type="checkbox" id="decisive_chk" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')}</label></p>
       <p><a class="btn" href="#/openings">${t('nav_openings')}</a></p>`);
     main.querySelector('#rep').onchange = (e) => { if (e.target.checked) viewTrain(my, { repeat: true }); };
+    main.querySelector('#decisive_chk').onchange = (e) => {
+      onlyDecisive = e.target.checked;
+      localStorage.setItem('only_decisive', onlyDecisive ? '1' : '0');
+      viewTrain(my, { repeat, fresh: true });
+    };
     return;
   }
   const { tree: savedTree } = await api('annotation_get', { params: { game_id: game.id } });
@@ -270,9 +280,17 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
         <div id="msg" class="msg"></div>
         <div class="row">
           <button id="hint" class="ghost">${t('hint')}</button>
+          <button id="freetrain" class="ghost" title="${t('free_mode_tt')}">${t('free_mode')}</button>
           <button id="skip" class="primary">${t('new_game')}</button>
         </div>
-        <label class="chk"><input type="checkbox" id="showcm" ${showComments ? 'checked' : ''}> ${t('show_comments')}</label>
+        <div id="train_nav" class="train-nav" style="display:none;">
+          <button id="t_prev" class="ghost" type="button">${t('prev_move')}</button>
+          <button id="t_next" class="primary" type="button">${t('next_move')}</button>
+        </div>
+        <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
+          <label class="chk"><input type="checkbox" id="showcm" ${showComments ? 'checked' : ''}> ${t('show_comments')}</label>
+          <label class="chk"><input type="checkbox" id="decisive" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')}</label>
+        </div>
         <div id="moves" class="movelist"></div>
         <div class="card notes">
           <label><span id="notelabel"></span><textarea id="note" rows="3"></textarea></label>
@@ -288,7 +306,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     </div>`);
   const $ = (id) => main.querySelector('#' + id);
   const chess = new Chess();
-  const S = { ply: 0, tries: 0, hinted: false, wrong: 0, firstTry: 0, userMoves: 0, busy: false, done: false };
+  const S = { ply: 0, tries: 0, hinted: false, wrong: 0, firstTry: 0, userMoves: 0, busy: false, done: false, freeMode: false };
   const MAX_TRIES = 3;
   function persist() { // remember the current game + position so leaving the page doesn't lose it
     localStorage.setItem(key, JSON.stringify({ gameId: game.id, ply: S.ply, firstTry: S.firstTry, wrong: S.wrong, userMoves: S.userMoves, done: S.done }));
@@ -354,6 +372,11 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   function advance() {
     if (my !== viewId) return;
     if (S.ply >= game.moves.length) return finish();
+    if (S.freeMode) {
+      S.busy = false;
+      draw({ interactive: true });
+      return;
+    }
     if (myTurn()) {
       S.busy = false; S.tries = 0; S.hinted = false;
       msg('', t('your_move'));
@@ -371,7 +394,27 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   }
 
   function userMove(m) {
-    if (S.busy || S.done || !myTurn()) return;
+    if (S.busy || S.done) return;
+    if (S.freeMode) {
+      const expected = game.moves[S.ply];
+      const probe = new Chess(chess.fen());
+      let r;
+      try { r = probe.move(m); } catch { return draw({ interactive: true }); }
+      if (norm(r.san) === norm(expected)) {
+        msg('ok', t('correct'));
+      } else {
+        msg('bad', `${t('revealed')} ${expected}`);
+      }
+      playExpected();
+      if (S.ply >= game.moves.length) {
+        draw({ interactive: false });
+        finish();
+      } else {
+        draw({ interactive: true });
+      }
+      return;
+    }
+    if (!myTurn()) return;
     const expected = game.moves[S.ply];
     const probe = new Chess(chess.fen());
     let r;
@@ -402,6 +445,49 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     }
   }
 
+  $('freetrain').onclick = () => {
+    if (S.done) return;
+    S.freeMode = !S.freeMode;
+    $('freetrain').classList.toggle('on', S.freeMode);
+    $('train_nav').style.display = S.freeMode ? 'flex' : 'none';
+    if (S.freeMode) {
+      clearTimeout(timer);
+      S.busy = false;
+      msg('', t('free_mode_active'));
+      draw({ interactive: true });
+    } else {
+      advance();
+    }
+  };
+
+  $('t_next').onclick = () => {
+    if (S.done || S.ply >= game.moves.length) return;
+    playExpected();
+    if (S.ply >= game.moves.length) {
+      draw({ interactive: false });
+      finish();
+    } else {
+      draw({ interactive: true });
+    }
+  };
+
+  $('t_prev').onclick = () => {
+    if (S.ply <= 0) return;
+    clearTimeout(timer);
+    S.ply--;
+    chess.reset();
+    for (let i = 0; i < S.ply; i++) chess.move(game.moves[i]);
+    draw({ interactive: true });
+  };
+
+  $('decisive').onchange = (e) => {
+    onlyDecisive = e.target.checked;
+    localStorage.setItem('only_decisive', onlyDecisive ? '1' : '0');
+    if (onlyDecisive && game.result === '1/2-1/2') {
+      msg('', `${t('only_decisive')}: ${t('new_game')}?`);
+    }
+  };
+
   $('hint').onclick = () => {
     if (S.busy || S.done || !myTurn()) return;
     const mv = chess.moves({ verbose: true }).find((x) => norm(x.san) === norm(game.moves[S.ply]));
@@ -417,20 +503,77 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     persist();
     board.set({ interactive: false });
     $('hint').disabled = true;
+    if ($('freetrain')) $('freetrain').disabled = true;
+    if ($('train_nav')) $('train_nav').style.display = 'none';
     msg('', `${t('game_over')}: ${esc(game.result)}`);
     const pct = S.userMoves ? Math.round((100 * S.firstTry) / S.userMoves) : 0;
+
+    let explainTitle = '';
+    if (game.result === '1-0') {
+      explainTitle = t('why_won_white').replace('{name}', esc(game.white));
+    } else if (game.result === '0-1') {
+      explainTitle = t('why_won_black').replace('{name}', esc(game.black));
+    } else if (game.result === '1/2-1/2') {
+      explainTitle = t('why_draw');
+    } else {
+      explainTitle = t('why_won_generic');
+    }
+
+    const finalNode = nodeAtPly(game.moves.length);
+    const existingComment = finalNode ? (finalNode.comment || '') : (root.comment || '');
+
     $('end').innerHTML = `
       <div class="card">
         <p><b>${esc(game.white)}</b> ${game.white_title ? `(${esc(game.white_title)}) ` : ''}${game.white_elo ?? ''} –
            <b>${esc(game.black)}</b> ${game.black_title ? `(${esc(game.black_title)}) ` : ''}${game.black_elo ?? ''}</p>
-        <p>${t('result')}: ${esc(game.result)} · ${esc(game.event || '')} ${esc(game.date || '')} · ${esc(game.opening_name || game.eco || '')}</p>
-        <p>${t('score')}: <b>${S.firstTry}/${S.userMoves}</b> (${pct}%)</p>
+        <p>${t('result')}: <b>${esc(game.result)}</b> · ${esc(game.event || '')} ${esc(game.date || '')} · ${esc(game.opening_name || game.eco || '')}</p>
+        ${!S.freeMode ? `<p>${t('score')}: <b>${S.firstTry}/${S.userMoves}</b> (${pct}%)</p>` : ''}
+
+        <div class="explain-box">
+          <p class="title">${explainTitle}</p>
+          <p class="sub">${t('explain_prompt')}</p>
+          <textarea id="why_win" rows="3" placeholder="${t('explain_placeholder')}">${esc(existingComment)}</textarea>
+          <div class="row" style="align-items: center;">
+            <button id="save_why" class="primary" type="button">${t('save_explanation')}</button>
+            <span id="why_st" class="muted" style="margin-left: 8px;"></span>
+          </div>
+        </div>
+
         <p><a class="btn primary" id="next" href="#/train">${t('next_game')}</a>
            <a class="btn" href="#/annotate/${game.id}">${t('review')}</a></p>
       </div>`;
+
+    const whyBox = $('end').querySelector('#why_win');
+    const saveWhyBtn = $('end').querySelector('#save_why');
+    const whySt = $('end').querySelector('#why_st');
+
+    async function saveExplanation() {
+      const val = whyBox.value.trim();
+      const fn = nodeAtPly(game.moves.length);
+      if (fn) fn.comment = val;
+      else root.comment = val;
+      syncNote();
+      renderMoves();
+      whySt.textContent = '…';
+      try {
+        await api('annotation_save', { body: { game_id: game.id, tree: root, movetext: T.toMovetext(root) } });
+        whySt.textContent = t('saved');
+      } catch {
+        whySt.textContent = 'Fehler';
+      }
+    }
+
+    saveWhyBtn.onclick = saveExplanation;
+    whyBox.oninput = () => {
+      whySt.textContent = '';
+      const fn = nodeAtPly(game.moves.length);
+      if (fn) fn.comment = whyBox.value;
+      noteChanged();
+    };
+
     $('next').onclick = (e) => { e.preventDefault(); viewTrain(my, { repeat, fresh: true }); };
     await saveNotes();
-    if (!(resume && resume.done)) try { await api('progress', { body: { game_id: game.id, attempts: S.wrong, first_try_correct: S.firstTry, total_moves: S.userMoves } }); } catch {}
+    if (!S.freeMode && !(resume && resume.done)) try { await api('progress', { body: { game_id: game.id, attempts: S.wrong, first_try_correct: S.firstTry, total_moves: S.userMoves } }); } catch {}
   }
 
   // The named ECO opening line is played automatically; guessing starts after it.

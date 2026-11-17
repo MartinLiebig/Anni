@@ -104,5 +104,13 @@ textarea { width: 100%; }
 
 .orow.self i { color: var(--muted); }
 
+button.ghost.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.train-nav { display: flex; gap: 8px; margin: 8px 0; }
+.train-nav button { flex: 1; padding: 8px 12px; font-weight: bold; }
+.explain-box { margin: 12px 0; padding: 12px; background: #faf6ec; border: 1px solid #e2d7c3; border-radius: 8px; }
+.explain-box p.title { margin: 0 0 4px 0; font-weight: bold; color: #5a4630; }
+.explain-box p.sub { margin: 0 0 8px 0; font-size: 13px; color: var(--muted); }
+.explain-box textarea { width: 100%; box-sizing: border-box; margin-bottom: 8px; font-family: inherit; font-size: 14px; }
+
 .credit{font-size:.75rem;opacity:.6;text-align:center;padding:.8rem}
 .credit a{color:inherit}

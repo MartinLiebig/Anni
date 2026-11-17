@@ -108,6 +108,9 @@ switch ($a) {
     $where = 'g.stronger_side IS NOT NULL AND g.elo_gap >= ? AND g.max_elo >= ?
       AND g.eco IN (SELECT eco FROM user_openings WHERE user_id = ?) AND g.id <> ?';
     $params = [$me['min_gap'], $me['min_rating'], $u, $skip];
+    if (!empty($_GET['decisive'])) {
+      $where .= " AND g.result IN ('1-0', '0-1')";
+    }
     $repeat = !empty($_GET['repeat']);
     $sql = "SELECT g.* FROM games g WHERE $where "
          . ($repeat ? '' : 'AND g.id NOT IN (SELECT game_id FROM progress WHERE user_id = ?) ')
