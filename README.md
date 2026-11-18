@@ -24,6 +24,10 @@ The first registered user becomes admin. DB credentials: `public/api/config.php`
 
 ## Features & Known limits
 - Interactive board supports click-to-move, drag-and-drop, and underpromotion picker (Queen, Rook, Bishop, Knight).
+- Training shows players, ratings and event above the board. Click a move (or use ◀ ▶ / arrow keys) to step back, read and edit your notes there, then return to the current position.
+- "Free walkthrough" removes the 3-tries limit; "Decisive games only" skips draws; at the end you are asked to explain why the winner won.
+- `#/tactics` is a placeholder page for the upcoming youth exercises (forks, pins, mating patterns ...).
+- Look & feel: Bottrop blue. All brand colours are CSS variables at the top of `public/styles.css` (`--brand-*`).
 - Registration is open; no password reset or email verification.
 - Only Lichess broadcast PGNs were tested as source.
 

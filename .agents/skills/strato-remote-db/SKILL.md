@@ -43,13 +43,19 @@ python3 tools/strato_db.py delete-user <username_or_id>
 *Example:* `python3 tools/strato_db.py delete-user Alibaba` or `python3 tools/strato_db.py delete-user 6`  
 Cascades automatically to delete foreign-key records in `user_openings`, `progress`, and `annotations`.
 
-#### 3. View Table Statistics
+#### 3. Set a User's Password
+```bash
+python3 tools/strato_db.py set-password <username_or_email_or_id> '<new password>'
+```
+Hashes the password on the server (`password_hash`). **Never** write a bcrypt hash into a shell-quoted `sql` command: `$2y$12$...` gets expanded by the shell and silently corrupts the hash. Use `set-password` instead. Tell the user the new password and recommend changing it.
+
+#### 4. View Table Statistics
 ```bash
 python3 tools/strato_db.py stats
 ```
 Displays approximate row counts for `games`, `openings`, `users`, `game_databases`, etc.
 
-#### 4. Run Custom SQL Queries
+#### 5. Run Custom SQL Queries
 ```bash
 python3 tools/strato_db.py sql "SELECT id, event, white, black, result FROM games LIMIT 5"
 ```

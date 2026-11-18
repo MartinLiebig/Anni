@@ -36,12 +36,12 @@ const errText = (e) => t('err_' + e.code) !== 'err_' + e.code ? t('err_' + e.cod
 
 // ---------------------------------------------------------------- shell / routing
 function shell(inner) {
-  const links = [['home', 'nav_home'], ['openings', 'nav_openings'], ['train', 'nav_train'], ['mine', 'nav_mine']];
+  const links = [['home', 'nav_home'], ['openings', 'nav_openings'], ['train', 'nav_train'], ['tactics', 'nav_tactics'], ['mine', 'nav_mine']];
   const cur = location.hash.slice(2).split('/')[0] || 'home';
   app.innerHTML = `
     <header class="top">
-      <strong class="brand">♞ ${t('app')}</strong>
-      <nav>${links.map(([h, k]) => `<a href="#/${h}" class="${cur === h ? 'on' : ''}">${t(k)}</a>`).join('')}</nav>
+      <strong class="brand"><span class="logo">♞</span><span>Anni<small>SV Bottrop 21</small></span></strong>
+      ${user ? `<nav>${links.map(([h, k]) => `<a href="#/${h}" class="${cur === h ? 'on' : ''}">${t(k)}</a>`).join('')}</nav>` : ''}
       <span class="grow"></span>
       <button id="fs" class="ghost" title="${t('fullscreen')}">⛶</button>
       <button id="lang" class="ghost">${getLang() === 'de' ? 'EN' : 'DE'}</button>
@@ -62,6 +62,7 @@ function shell(inner) {
 async function route() {
   if (cleanup) { try { cleanup(); } catch {} cleanup = null; }
   const my = ++viewId;
+  window.scrollTo(0, 0);
   const [name, arg] = (location.hash.slice(2) || 'home').split('/');
   if (!user && name !== 'login') { location.hash = '#/login'; return; }
   try {
@@ -70,6 +71,7 @@ async function route() {
       case 'openings': return await viewOpenings(my);
       case 'train': return await viewTrain(my, {});
       case 'annotate': return await viewAnnotate(my, parseInt(arg, 10));
+      case 'tactics': return await viewTactics(my);
       case 'mine': return await viewMine(my);
       default: return await viewHome(my, arg);
     }
@@ -229,14 +231,38 @@ async function viewOpenings(my) {
   draw();
 }
 
-// ---------------------------------------------------------------- training
-function sanPairs(sans) {
-  let out = '';
-  sans.forEach((s, i) => { out += (i % 2 === 0 ? `<span class="num">${i / 2 + 1}.</span>` : '') + `<span class="mv">${esc(s)}</span> `; });
-  return out;
+// ---------------------------------------------------------------- game header (players + event)
+function fmtDate(d) {
+  const m = /^(\d{4})\.(\d{2})\.(\d{2})$/.exec(d || '');
+  if (!m) return '';
+  return getLang() === 'de' ? `${m[3]}.${m[2]}.${m[1]}` : `${m[1]}-${m[2]}-${m[3]}`;
+}
+function fmtRound(r) { // lichess team events use "round.board", e.g. 5.14
+  const m = /^(\d+)\.(\d+)$/.exec(r || '');
+  if (m) return `${t('round')} ${m[1]} · ${t('board_no')} ${m[2]}`;
+  return r && !/^[?-]+$/.test(r) ? `${t('round')} ${r}` : '';
+}
+function playerCard(cls, name, title, elo, me) {
+  return `<div class="pl ${cls}${me ? ' me' : ''}"><span class="dot"></span>
+    <span class="nm" title="${esc(name)}">${esc(name)}</span>${title ? `<span class="ttl">${esc(title)}</span>` : ''}
+    <span class="rt">${elo ?? ''}</span>${me ? `<span class="you">${t('you')}</span>` : ''}</div>`;
+}
+/** Players (with title/rating) and event info; `mine` = side the user trains ('w'/'b'/null); `extra` = html chips appended to the event line. */
+function gameHeader(game, mine, extra = '') {
+  const site = game.site && !/^https?:/i.test(game.site) ? game.site : '';
+  const bits = [game.event ? `<b>${esc(game.event)}</b>` : '', esc(fmtRound(game.round)), esc(site), esc(fmtDate(game.date))].filter(Boolean);
+  return `<div class="gamehead">
+    <div class="players">
+      ${playerCard('w', game.white, game.white_title, game.white_elo, mine === 'w')}
+      ${playerCard('b', game.black, game.black_title, game.black_elo, mine === 'b')}
+    </div>
+    <div class="evt">${bits.map((b) => `<span>${b}</span>`).join('')}${extra}</div>
+  </div>`;
 }
 
+// ---------------------------------------------------------------- training
 async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
+  if (cleanup) { try { cleanup(); } catch {} cleanup = null; } // "new game" re-enters this view without a route change
   // The current game (and position) is remembered per user; it only changes on "next game" / "skip".
   const key = `train:${user.id}`;
   let resume = null;
@@ -252,10 +278,10 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   if (my !== viewId) return;
   if (!game) {
     localStorage.removeItem(key);
-    const main = shell(`<p>${t('no_games')}</p>
+    const main = shell(`<div class="card"><p>${t('no_games')}</p>
       <p><label><input type="checkbox" id="rep"> ${t('repeat_games')}</label></p>
       <p><label class="chk"><input type="checkbox" id="decisive_chk" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')}</label></p>
-      <p><a class="btn" href="#/openings">${t('nav_openings')}</a></p>`);
+      <p><a class="btn" href="#/openings">${t('nav_openings')}</a></p></div>`);
     main.querySelector('#rep').onchange = (e) => { if (e.target.checked) viewTrain(my, { repeat: true }); };
     main.querySelector('#decisive_chk').onchange = (e) => {
       onlyDecisive = e.target.checked;
@@ -269,27 +295,33 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   const root = savedTree ? T.reviveTree(savedTree) : T.buildTree(game.moves);
 
   const mine = game.side;
-  const myElo = mine === 'w' ? game.white_elo : game.black_elo;
-  const oppElo = mine === 'w' ? game.black_elo : game.white_elo;
   const main = shell(`
-    <div class="game-layout">
-      <div class="boardwrap"><div id="board"></div></div>
+    <div class="game-layout with-nav">
+      <div class="boardwrap">
+        ${gameHeader(game, mine, '<span id="hd_res"></span>')}
+        <div id="board"></div>
+        <div class="nav under">
+          <button id="n_first" type="button" title="${t('nav_first_tt')}">⏮</button>
+          <button id="n_prev" type="button" title="${t('nav_prev_tt')}">◀</button>
+          <button id="n_next" type="button" title="${t('nav_next_tt')}">▶</button>
+          <button id="n_last" type="button" title="${t('nav_last_tt')}">⏭</button>
+        </div>
+      </div>
       <div class="side">
-        <p class="who2">${t('train_side')}: <b>${mine === 'w' ? t('white') : t('black')}</b> (${myElo ?? '?'} vs. ${oppElo ?? '?'})</p>
         <div id="bookinfo" class="muted"></div>
         <div id="msg" class="msg"></div>
+        <div id="browsebar" class="row" style="display:none;">
+          <span class="live-badge show">● ${t('browsing')}</span>
+          <button id="back_live" type="button" class="primary">${t('back_live')}</button>
+        </div>
         <div class="row">
           <button id="hint" class="ghost">${t('hint')}</button>
           <button id="freetrain" class="ghost" title="${t('free_mode_tt')}">${t('free_mode')}</button>
           <button id="skip" class="primary">${t('new_game')}</button>
         </div>
-        <div id="train_nav" class="train-nav" style="display:none;">
-          <button id="t_prev" class="ghost" type="button">${t('prev_move')}</button>
-          <button id="t_next" class="primary" type="button">${t('next_move')}</button>
-        </div>
-        <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
+        <div class="row" style="gap:6px 14px;">
           <label class="chk"><input type="checkbox" id="showcm" ${showComments ? 'checked' : ''}> ${t('show_comments')}</label>
-          <label class="chk"><input type="checkbox" id="decisive" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')}</label>
+          <label class="chk"><input type="checkbox" id="decisive" ${onlyDecisive ? 'checked' : ''}> ${t('only_decisive')} <span class="muted">${t('decisive_next')}</span></label>
         </div>
         <div id="moves" class="movelist"></div>
         <div class="card notes">
@@ -305,9 +337,11 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       </div>
     </div>`);
   const $ = (id) => main.querySelector('#' + id);
-  const chess = new Chess();
-  const S = { ply: 0, tries: 0, hinted: false, wrong: 0, firstTry: 0, userMoves: 0, busy: false, done: false, freeMode: false };
+  const chess = new Chess(); // the live game: everything the user has played / been shown so far
+  // view = ply currently shown (null = the live position); lets you step back, read and edit notes, and return.
+  const S = { ply: 0, tries: 0, hinted: false, wrong: 0, firstTry: 0, userMoves: 0, busy: false, done: false, freeMode: false, view: null, liveInteractive: false };
   const MAX_TRIES = 3;
+  const curPly = () => S.view ?? S.ply;
   function persist() { // remember the current game + position so leaving the page doesn't lose it
     localStorage.setItem(key, JSON.stringify({ gameId: game.id, ply: S.ply, firstTry: S.firstTry, wrong: S.wrong, userMoves: S.userMoves, done: S.done }));
   }
@@ -319,6 +353,11 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     for (let i = 0; i < ply; i++) { n = n.children.find((c) => c.san === game.moves[i]); if (!n) return null; }
     return n;
   };
+  const ensureNode = (ply) => {                      // like nodeAtPly, but re-creates main-line nodes that were deleted in the analysis view
+    let n = root;
+    for (let i = 0; i < ply; i++) n = T.addMove(n, game.moves[i]);
+    return n;
+  };
   async function saveNotes() {
     clearTimeout(noteTimer);
     if (!noteDirty) return;
@@ -326,57 +365,77 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     try {
       await api('annotation_save', { body: { game_id: game.id, tree: root, movetext: T.toMovetext(root) } });
       $('nst').textContent = t('saved');
-    } catch { noteDirty = true; }
+    } catch { noteDirty = true; $('nst').textContent = t('save_failed'); }
   }
   const noteChanged = () => { noteDirty = true; $('nst').textContent = '…'; clearTimeout(noteTimer); noteTimer = setTimeout(saveNotes, 1500); };
   function syncNote() {
-    const n = nodeAtPly(S.ply);
+    const p = curPly();
+    const n = nodeAtPly(p);
     $('note').disabled = !n;
     $('note').value = n ? n.comment : '';
-    $('notelabel').textContent = !n ? '' : n === root ? t('note_start') : `${t('note_after')} ${Math.ceil(S.ply / 2)}${S.ply % 2 ? '.' : '…'} ${n.san}`;
+    $('notelabel').textContent = !n ? '' : n === root ? t('note_start') : `${t('note_after')} ${Math.ceil(p / 2)}${p % 2 ? '.' : '…'} ${n.san}`;
     main.querySelectorAll('[data-nag]').forEach((b) => {
       b.disabled = !n || n === root;
       b.classList.toggle('on', !!n && n.nags.includes(+b.dataset.nag));
     });
   }
-  function renderMoves() { // move list incl. your symbols and comments (only up to the current position)
-    let n = root, h = '';
+  function renderMoves() { // only the moves played so far (nothing from the future); click one to jump there
+    const cur = curPly();
+    let n = root;
+    let h = `<span class="mv${cur === 0 ? ' on' : ''}" data-ply="0">${t('start_pos')}</span> `;
     for (let i = 0; i < S.ply; i++) {
       n = n && n.children.find((c) => c.san === game.moves[i]);
       if (i % 2 === 0) h += `<span class="num">${i / 2 + 1}.</span>`;
-      h += `<span class="mv">${esc(game.moves[i])}${n ? n.nags.map((x) => esc(T.NAG_SYMBOL[x] || '$' + x)).join('') : ''}</span> `;
+      h += `<span class="mv${cur === i + 1 ? ' on' : ''}" data-ply="${i + 1}">${esc(game.moves[i])}${n ? n.nags.map((x) => esc(T.NAG_SYMBOL[x] || '$' + x)).join('') : ''}</span> `;
       if (showComments && n && n.comment) h += `<span class="cm">${esc(n.comment)}</span> `;
     }
     $('moves').innerHTML = h;
-    $('moves').scrollTop = $('moves').scrollHeight;
+    const box = $('moves'), on = box.querySelector('.mv.on'); // keep the current move visible without scrolling the page
+    if (on) {
+      if (on.offsetTop < box.scrollTop) box.scrollTop = on.offsetTop;
+      else if (on.offsetTop + on.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = on.offsetTop + on.offsetHeight - box.clientHeight;
+    }
   }
+  $('moves').onclick = (e) => { const m = e.target.closest('[data-ply]'); if (m) browse(+m.dataset.ply); };
   $('showcm').onchange = (e) => { showComments = e.target.checked; localStorage.setItem('showComments', showComments ? '1' : '0'); renderMoves(); };
   $('savenote').onclick = async () => { await saveNotes(); $('nst').textContent = t('saved'); };
-  $('note').oninput = (e) => { const n = nodeAtPly(S.ply); if (n) { n.comment = e.target.value; noteChanged(); renderMoves(); } };
-  main.querySelectorAll('[data-nag]').forEach((b) => { b.onclick = () => { const n = nodeAtPly(S.ply); if (n && n !== root) { T.toggleNag(n, +b.dataset.nag); noteChanged(); syncNote(); renderMoves(); } }; });
-  cleanup = () => { clearTimeout(timer); saveNotes(); };
+  $('note').oninput = (e) => { const n = nodeAtPly(curPly()); if (n) { n.comment = e.target.value; noteChanged(); renderMoves(); } };
+  main.querySelectorAll('[data-nag]').forEach((b) => { b.onclick = () => { const n = nodeAtPly(curPly()); if (n && n !== root) { T.toggleNag(n, +b.dataset.nag); noteChanged(); syncNote(); renderMoves(); } }; });
 
   const board = new Board($('board'), { onMove: userMove });
   const msg = (cls, text) => { $('msg').className = 'msg ' + cls; $('msg').textContent = text; };
-  const draw = (extra = {}) => {
-    const h = chess.history({ verbose: true });
-    const last = h.at(-1);
-    board.set({ fen: chess.fen(), orientation: mine, lastMove: last ? { from: last.from, to: last.to } : null, hint: null, ...extra });
-    renderMoves();
-    $('moves').scrollTop = $('moves').scrollHeight;
-    syncNote();
-    persist();
+  const positionAt = (p) => { const c = new Chess(); for (let i = 0; i < p; i++) c.move(game.moves[i]); return c; };
+  function renderBoard() {
+    const live = S.view === null;
+    const c = live ? chess : positionAt(S.view);
+    const last = c.history({ verbose: true }).at(-1);
+    board.set({ fen: c.fen(), orientation: mine, lastMove: last ? { from: last.from, to: last.to } : null, hint: null, interactive: live && S.liveInteractive });
+  }
+  function updateNav() {
+    const p = curPly();
+    const canStep = S.freeMode && !S.done && S.ply < game.moves.length;
+    $('n_first').disabled = $('n_prev').disabled = p === 0;
+    $('n_next').disabled = !(S.view !== null || canStep);
+    $('n_last').disabled = S.view === null;
+    $('browsebar').style.display = S.view === null ? 'none' : 'flex';
+    $('hint').disabled = S.done || S.view !== null;
+  }
+  function browse(p) { // step through positions already played; never past the live position
+    p = Math.max(0, Math.min(S.ply, p));
+    S.view = p === S.ply ? null : p;
+    renderBoard(); renderMoves(); syncNote(); updateNav();
+  }
+  // Redraws the live game. If the user is looking at an earlier move, their view stays put.
+  const draw = ({ interactive = false } = {}) => {
+    S.liveInteractive = interactive;
+    renderBoard(); renderMoves(); syncNote(); updateNav(); persist();
   };
   const myTurn = () => (S.ply % 2 === 0 ? 'w' : 'b') === mine;
 
   function advance() {
     if (my !== viewId) return;
     if (S.ply >= game.moves.length) return finish();
-    if (S.freeMode) {
-      S.busy = false;
-      draw({ interactive: true });
-      return;
-    }
+    if (S.freeMode) { S.busy = false; draw({ interactive: true }); return; }
     if (myTurn()) {
       S.busy = false; S.tries = 0; S.hinted = false;
       msg('', t('your_move'));
@@ -384,7 +443,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     } else {
       S.busy = true;
       msg('', t('opp_move'));
-      board.set({ interactive: false });
+      draw({ interactive: false });
       timer = setTimeout(() => { chess.move(game.moves[S.ply]); S.ply++; draw({ interactive: false }); advance(); }, 550);
     }
   }
@@ -392,30 +451,23 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   function playExpected() {
     chess.move(game.moves[S.ply]); S.ply++;
   }
+  function afterFreeStep() {
+    if (S.ply >= game.moves.length) { draw({ interactive: false }); finish(); } else draw({ interactive: true });
+  }
 
   function userMove(m) {
-    if (S.busy || S.done) return;
-    if (S.freeMode) {
-      const expected = game.moves[S.ply];
+    if (S.busy || S.done || S.view !== null) return;
+    const expected = game.moves[S.ply];
+    if (S.freeMode) { // no tries limit: whatever you play, the game move is shown
       const probe = new Chess(chess.fen());
       let r;
       try { r = probe.move(m); } catch { return draw({ interactive: true }); }
-      if (norm(r.san) === norm(expected)) {
-        msg('ok', t('correct'));
-      } else {
-        msg('bad', `${t('revealed')} ${expected}`);
-      }
+      if (norm(r.san) === norm(expected)) msg('ok', t('correct'));
+      else msg('bad', `${t('revealed')} ${expected}`);
       playExpected();
-      if (S.ply >= game.moves.length) {
-        draw({ interactive: false });
-        finish();
-      } else {
-        draw({ interactive: true });
-      }
-      return;
+      return afterFreeStep();
     }
     if (!myTurn()) return;
-    const expected = game.moves[S.ply];
     const probe = new Chess(chess.fen());
     let r;
     try { r = probe.move(m); } catch { return draw({ interactive: true }); }
@@ -423,9 +475,9 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     if (norm(r.san) === norm(expected)) {
       if (S.tries === 0 && !S.hinted) S.firstTry++;
       playExpected();
+      S.busy = true;
       draw({ interactive: false });
       msg('ok', t('correct'));
-      S.busy = true;
       timer = setTimeout(advance, 350);
     } else {
       S.userMoves -= 1; // only count the move once it is solved
@@ -434,9 +486,9 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       if (left <= 0) {
         S.userMoves += 1;
         playExpected();
+        S.busy = true;
         draw({ interactive: false });
         msg('bad', `${t('revealed')} ${expected}`);
-        S.busy = true;
         timer = setTimeout(advance, 1500);
       } else {
         msg('bad', `${t('wrong')} ${left} ${t('tries_left')}`);
@@ -449,47 +501,35 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     if (S.done) return;
     S.freeMode = !S.freeMode;
     $('freetrain').classList.toggle('on', S.freeMode);
-    $('train_nav').style.display = S.freeMode ? 'flex' : 'none';
-    if (S.freeMode) {
-      clearTimeout(timer);
-      S.busy = false;
-      msg('', t('free_mode_active'));
-      draw({ interactive: true });
-    } else {
-      advance();
-    }
-  };
-
-  $('t_next').onclick = () => {
-    if (S.done || S.ply >= game.moves.length) return;
-    playExpected();
-    if (S.ply >= game.moves.length) {
-      draw({ interactive: false });
-      finish();
-    } else {
-      draw({ interactive: true });
-    }
-  };
-
-  $('t_prev').onclick = () => {
-    if (S.ply <= 0) return;
     clearTimeout(timer);
-    S.ply--;
-    chess.reset();
-    for (let i = 0; i < S.ply; i++) chess.move(game.moves[i]);
-    draw({ interactive: true });
+    S.busy = false;
+    if (S.freeMode) { msg('', t('free_mode_active')); draw({ interactive: true }); }
+    else advance();
   };
+  $('n_first').onclick = () => browse(0);
+  $('n_prev').onclick = () => browse(curPly() - 1);
+  $('n_last').onclick = () => browse(S.ply);
+  $('back_live').onclick = () => browse(S.ply);
+  $('n_next').onclick = () => {
+    if (S.view !== null) return browse(S.view + 1);
+    if (S.freeMode && !S.done && S.ply < game.moves.length) { clearTimeout(timer); S.busy = false; playExpected(); afterFreeStep(); }
+  };
+  const keys = (e) => {
+    if (['TEXTAREA', 'INPUT'].includes(e.target.tagName) || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowLeft') { $('n_prev').click(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { $('n_next').click(); e.preventDefault(); }
+    else if (e.key === 'Home') { $('n_first').click(); e.preventDefault(); }
+    else if (e.key === 'End') { $('n_last').click(); e.preventDefault(); }
+  };
+  document.addEventListener('keydown', keys);
+  cleanup = () => { document.removeEventListener('keydown', keys); clearTimeout(timer); saveNotes(); };
 
-  $('decisive').onchange = (e) => {
+  $('decisive').onchange = (e) => { // applies when the next game is picked
     onlyDecisive = e.target.checked;
     localStorage.setItem('only_decisive', onlyDecisive ? '1' : '0');
-    if (onlyDecisive && game.result === '1/2-1/2') {
-      msg('', `${t('only_decisive')}: ${t('new_game')}?`);
-    }
   };
-
   $('hint').onclick = () => {
-    if (S.busy || S.done || !myTurn()) return;
+    if (S.busy || S.done || S.view !== null || !myTurn()) return;
     const mv = chess.moves({ verbose: true }).find((x) => norm(x.san) === norm(game.moves[S.ply]));
     if (mv) { S.hinted = true; board.set({ hint: mv.from }); }
   };
@@ -499,81 +539,50 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   };
 
   async function finish() {
+    if (S.done) return;
     S.done = true;
-    persist();
-    board.set({ interactive: false });
-    $('hint').disabled = true;
-    if ($('freetrain')) $('freetrain').disabled = true;
-    if ($('train_nav')) $('train_nav').style.display = 'none';
+    clearTimeout(timer);
+    S.busy = false;
+    draw({ interactive: false });
+    $('freetrain').disabled = true;
     msg('', `${t('game_over')}: ${esc(game.result)}`);
+    $('hd_res').innerHTML = `<b>${esc(game.result)}</b>`;
     const pct = S.userMoves ? Math.round((100 * S.firstTry) / S.userMoves) : 0;
 
-    let explainTitle = '';
-    if (game.result === '1-0') {
-      explainTitle = t('why_won_white').replace('{name}', esc(game.white));
-    } else if (game.result === '0-1') {
-      explainTitle = t('why_won_black').replace('{name}', esc(game.black));
-    } else if (game.result === '1/2-1/2') {
-      explainTitle = t('why_draw');
-    } else {
-      explainTitle = t('why_won_generic');
-    }
-
+    const explainTitle = game.result === '1-0' ? t('why_won_white').replace('{name}', game.white)
+      : game.result === '0-1' ? t('why_won_black').replace('{name}', game.black)
+      : game.result === '1/2-1/2' ? t('why_draw') : t('why_won_generic');
     const finalNode = nodeAtPly(game.moves.length);
-    const existingComment = finalNode ? (finalNode.comment || '') : (root.comment || '');
 
     $('end').innerHTML = `
       <div class="card">
-        <p><b>${esc(game.white)}</b> ${game.white_title ? `(${esc(game.white_title)}) ` : ''}${game.white_elo ?? ''} –
-           <b>${esc(game.black)}</b> ${game.black_title ? `(${esc(game.black_title)}) ` : ''}${game.black_elo ?? ''}</p>
-        <p>${t('result')}: <b>${esc(game.result)}</b> · ${esc(game.event || '')} ${esc(game.date || '')} · ${esc(game.opening_name || game.eco || '')}</p>
-        ${!S.freeMode ? `<p>${t('score')}: <b>${S.firstTry}/${S.userMoves}</b> (${pct}%)</p>` : ''}
-
+        <p>${t('result')}: <b>${esc(game.result)}</b> · ${esc(game.opening_name || game.eco || '')}</p>
+        <p>${t('score')}: <b>${S.firstTry}/${S.userMoves}</b> (${pct}%)</p>
         <div class="explain-box">
-          <p class="title">${explainTitle}</p>
+          <p class="title">${esc(explainTitle)}</p>
           <p class="sub">${t('explain_prompt')}</p>
-          <textarea id="why_win" rows="3" placeholder="${t('explain_placeholder')}">${esc(existingComment)}</textarea>
-          <div class="row" style="align-items: center;">
+          <textarea id="why_win" rows="3" placeholder="${esc(t('explain_placeholder'))}">${esc(finalNode ? finalNode.comment : '')}</textarea>
+          <div class="row">
             <button id="save_why" class="primary" type="button">${t('save_explanation')}</button>
-            <span id="why_st" class="muted" style="margin-left: 8px;"></span>
+            <span id="why_st" class="muted"></span>
           </div>
         </div>
-
         <p><a class="btn primary" id="next" href="#/train">${t('next_game')}</a>
            <a class="btn" href="#/annotate/${game.id}">${t('review')}</a></p>
       </div>`;
 
-    const whyBox = $('end').querySelector('#why_win');
-    const saveWhyBtn = $('end').querySelector('#save_why');
-    const whySt = $('end').querySelector('#why_st');
-
-    async function saveExplanation() {
-      const val = whyBox.value.trim();
-      const fn = nodeAtPly(game.moves.length);
-      if (fn) fn.comment = val;
-      else root.comment = val;
-      syncNote();
-      renderMoves();
-      whySt.textContent = '…';
-      try {
-        await api('annotation_save', { body: { game_id: game.id, tree: root, movetext: T.toMovetext(root) } });
-        whySt.textContent = t('saved');
-      } catch {
-        whySt.textContent = 'Fehler';
-      }
-    }
-
-    saveWhyBtn.onclick = saveExplanation;
-    whyBox.oninput = () => {
-      whySt.textContent = '';
-      const fn = nodeAtPly(game.moves.length);
-      if (fn) fn.comment = whyBox.value;
-      noteChanged();
+    const whyBox = $('why_win'), whySt = $('why_st');
+    const storeWhy = () => { ensureNode(game.moves.length).comment = whyBox.value.trim(); syncNote(); renderMoves(); };
+    whyBox.oninput = () => { whySt.textContent = ''; storeWhy(); noteChanged(); };
+    $('save_why').onclick = async () => {
+      storeWhy(); whySt.textContent = '…';
+      noteDirty = true; await saveNotes();
+      whySt.textContent = noteDirty ? t('save_failed') : t('saved');
     };
-
     $('next').onclick = (e) => { e.preventDefault(); viewTrain(my, { repeat, fresh: true }); };
     await saveNotes();
-    if (!S.freeMode && !(resume && resume.done)) try { await api('progress', { body: { game_id: game.id, attempts: S.wrong, first_try_correct: S.firstTry, total_moves: S.userMoves } }); } catch {}
+    // Mark the game as played (also after a free walkthrough), otherwise it would be served again.
+    if (!(resume && resume.done)) try { await api('progress', { body: { game_id: game.id, attempts: S.wrong, first_try_correct: S.firstTry, total_moves: S.userMoves } }); } catch {}
   }
 
   // The named ECO opening line is played automatically; guessing starts after it.
@@ -604,9 +613,9 @@ async function viewAnnotate(my, id) {
 
   const main = shell(`
     <h2>${t('annotate_title')}</h2>
-    <p><b>${esc(game.white)}</b> ${game.white_elo ?? ''} – <b>${esc(game.black)}</b> ${game.black_elo ?? ''} · ${esc(game.result)} · ${esc(game.opening_name || game.eco || '')}</p>
     <div class="game-layout with-nav">
       <div class="boardwrap">
+        ${gameHeader(game, null, `<span><b>${esc(game.result)}</b></span>${game.opening_name || game.eco ? `<span>${esc(game.opening_name || game.eco)}</span>` : ''}`)}
         <div id="board"></div>
         <div class="row nav"><button id="first">⏮</button><button id="prev">◀</button><button id="next">▶</button><button id="last">⏭</button></div>
       </div>
@@ -716,6 +725,41 @@ async function viewAnnotate(my, id) {
   cleanup = () => { document.removeEventListener('keydown', keys); save(); };
 
   refresh(true);
+}
+
+// ---------------------------------------------------------------- tactics (placeholder)
+// Placeholder for the youth-training exercises that will follow (forks, pins, mating patterns ...).
+async function viewTactics(my) {
+  const themes = [['♞', 'fork'], ['♝', 'pin'], ['♜', 'skewer'], ['♛', 'disc'], ['♚', 'mate'], ['♖', 'back'], ['♙', 'end']];
+  const FORK = 'r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1'; // Nc7+ forks king e8 and rook a8
+  const main = shell(`
+    <div class="hero">
+      <div class="big">♞</div>
+      <div><h2>${t('tactics_title')}</h2><p>${t('tactics_sub')}</p></div>
+    </div>
+    <div class="tgrid">
+      <div class="tcard demo">
+        <span class="soon">${t('soon')}</span>
+        <h3>${t('demo_title')}</h3>
+        <div class="demo-body">
+          <div class="demo-board"><div id="demo"></div></div>
+          <div style="flex:1 1 220px">
+            <p>${t('demo_text')}</p>
+            <div class="row"><button id="demo_go" class="primary" type="button">${t('demo_show')}</button><button id="demo_reset" type="button">${t('demo_reset')}</button></div>
+          </div>
+        </div>
+      </div>
+      ${themes.map(([ico, k]) => `<div class="tcard locked"><span class="soon">${t('soon')}</span><span class="ico">${ico}</span><h3>${t('th_' + k)}</h3><p>${t('th_' + k + '_d')}</p></div>`).join('')}
+    </div>`);
+  const demo = new Board(main.querySelector('#demo'), { onMove() {} });
+  const reset = () => demo.set({ fen: FORK, orientation: 'w', lastMove: null, hint: null, interactive: false });
+  reset();
+  main.querySelector('#demo_go').onclick = () => {
+    const c = new Chess(FORK);
+    const m = c.move('Nc7+');
+    demo.set({ fen: c.fen(), lastMove: { from: m.from, to: m.to }, interactive: false });
+  };
+  main.querySelector('#demo_reset').onclick = reset;
 }
 
 // ---------------------------------------------------------------- my annotations

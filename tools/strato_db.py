@@ -114,6 +114,32 @@ def cmd_delete_user(env, user_ident):
     else:
         print("Error deleting user:", res.get("error") or res.get("raw"))
 
+def cmd_set_password(env, user_ident, new_password):
+    php = f"""<?php
+$cfg = require('/mnt/web009/c1/31/51555031/htdocs/anni/api/config.php');
+try {{
+    $pdo = new PDO($cfg['db_dsn'], $cfg['db_user'], $cfg['db_pass']);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pw = {json.dumps(new_password)};
+    $ident = {json.dumps(user_ident)};
+    $hash = password_hash($pw, PASSWORD_DEFAULT);
+    $st = $pdo->prepare('UPDATE users SET pass_hash = ? WHERE username = ? OR email = ? OR id = ?');
+    $st->execute([$hash, $ident, $ident, (int)$ident]);
+    echo json_encode(["status" => "ok", "affected" => $st->rowCount()]);
+}} catch (Exception $e) {{
+    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+}}
+"""
+    output = run_remote_php(env, php)
+    try:
+        res = json.loads(output)
+        if res.get("status") == "ok":
+            print(f"Password updated successfully for '{user_ident}'. (affected rows: {res.get('affected')})")
+        else:
+            print("Error updating password:", res.get("error") or res.get("raw"))
+    except json.JSONDecodeError:
+        print("Raw output:", output)
+
 def cmd_stats(env):
     sql = """
     SELECT table_name, table_rows 
@@ -145,6 +171,7 @@ def main():
         print("Usage: strato_db.py <command> [args]")
         print("Commands:")
         print("  users                   List all user accounts")
+        print("  set-password <user> <pw> Update password for a user")
         print("  delete-user <id|name>   Delete a user account by ID or username")
         print("  stats                   Show summary table row counts")
         print("  sql <query>             Execute arbitrary SQL statement")
@@ -153,6 +180,11 @@ def main():
     cmd = sys.argv[1].lower()
     if cmd == "users":
         cmd_users(env)
+    elif cmd == "set-password":
+        if len(sys.argv) < 4:
+            print("Error: set-password requires <username> <new_password>")
+            sys.exit(1)
+        cmd_set_password(env, sys.argv[2], sys.argv[3])
     elif cmd == "delete-user":
         if len(sys.argv) < 3:
             print("Error: delete-user requires an ID or username argument.")

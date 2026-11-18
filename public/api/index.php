@@ -207,7 +207,7 @@ function game_payload(array $g): array {
     'white' => $g['white'], 'black' => $g['black'],
     'white_elo' => $g['white_elo'] ? (int)$g['white_elo'] : null, 'black_elo' => $g['black_elo'] ? (int)$g['black_elo'] : null,
     'white_title' => $g['white_title'], 'black_title' => $g['black_title'],
-    'result' => $g['result'], 'eco' => $g['eco'], 'event' => $g['event'], 'date' => $g['game_date'], 'round' => $g['round'],
+    'result' => $g['result'], 'eco' => $g['eco'], 'event' => $g['event'], 'site' => $g['site'], 'date' => $g['game_date'], 'round' => $g['round'],
     'elo_gap' => (int)$g['elo_gap'], 'book_plies' => (int)$g['book_plies'], 'book_name' => $g['book_name'], 'opening_name' => $g['opening_name'],
   ];
 }
