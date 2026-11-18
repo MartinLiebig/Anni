@@ -95,9 +95,19 @@ function viewLogin(mode = 'login', errCode = '') {
       <p class="err" id="err">${errCode ? esc(errText({ code: errCode })) : ''}</p>
       <button class="primary">${reg ? t('register') : t('login')}</button>
       ${googleEnabled ? `<a class="btn google" href="api/oauth_google.php">${t('google_login')}</a>` : ''}
+      ${!reg ? `<button id="guest" type="button" class="btn google">${t('guest_login')}</button>` : ''}
       <p><a href="#" id="sw">${reg ? t('have_account') : t('no_account')}</a></p>
     </form>`);
   document.getElementById('sw').onclick = (e) => { e.preventDefault(); viewLogin(reg ? 'login' : 'register'); };
+  const gBtn = document.getElementById('guest');
+  if (gBtn) gBtn.onclick = async () => {
+    gBtn.disabled = true;
+    try {
+      const r = await api('guest', { body: { lang: getLang() } });
+      user = r.user; csrf = r.csrf; setLang(user.lang);
+      location.hash = '#/home';
+    } catch (err) { document.getElementById('err').textContent = errText(err); gBtn.disabled = false; }
+  };
   document.getElementById('f').onsubmit = async (e) => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.target));

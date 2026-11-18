@@ -106,7 +106,20 @@ textarea { width: 100%; resize: vertical; }
 .side { flex: 1 1 320px; min-width: 0; }
 .msg { min-height: 2.3em; font-weight: 600; margin: 6px 0; }
 .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
-@media (max-width: 860px) { .game-layout { flex-wrap: wrap; } .boardwrap { width: 100%; } .movelist, .movelist.tall { max-height: 220px; } }
+@media (max-width: 860px) {
+  .top { position: static; padding: 8px 12px; gap: 6px 10px; }
+  .brand .logo { width: 28px; height: 28px; font-size: 16px; }
+  .brand small { display: none; }
+  .top nav { order: 3; width: 100%; margin-left: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .top nav::-webkit-scrollbar { display: none; }
+  .top a { padding: 5px 10px; font-size: .88rem; white-space: nowrap; }
+  .top .ghost { padding: 5px 10px; font-size: .86rem; }
+  main { padding: 10px 10px 24px; }
+  .game-layout { flex-wrap: wrap; }
+  .boardwrap { width: 100%; }
+  .board { max-width: calc(100dvh - 140px); margin: 0 auto; }
+  .movelist, .movelist.tall { max-height: 220px; }
+}
 
 /* players + event above the board */
 .gamehead { margin: 0 0 8px; }

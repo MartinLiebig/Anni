@@ -35,7 +35,7 @@ $a = $_GET['a'] ?? '';
 $post = $_SERVER['REQUEST_METHOD'] === 'POST';
 $pdo = db();
 
-if ($post && !in_array($a, ['login', 'register'], true)) csrf();
+if ($post && !in_array($a, ['login', 'register', 'guest'], true)) csrf();
 
 switch ($a) {
   case 'me':
@@ -66,6 +66,18 @@ switch ($a) {
     if (!$r || !password_verify((string)($b['password'] ?? ''), $r['pass_hash'])) { usleep(300000); fail('bad_credentials', 401); }
     login_session((int)$r['id']);
     out(['user' => user_row((int)$r['id']), 'csrf' => $_SESSION['csrf']]);
+  }
+
+  case 'guest': {
+    $b = body();
+    $lang = in_array($b['lang'] ?? '', ['de', 'en'], true) ? $b['lang'] : 'de';
+    $name = 'guest_' . bin2hex(random_bytes(4));
+    $pdo->prepare('INSERT INTO users (username, email, pass_hash, is_admin, lang) VALUES (?,?,?,0,?)')
+        ->execute([$name, $name . '@guest.local', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $lang]);
+    $uid = (int)$pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO user_openings (user_id, eco) SELECT ?, eco FROM openings')->execute([$uid]);
+    login_session($uid);
+    out(['user' => user_row($uid), 'csrf' => $_SESSION['csrf']]);
   }
 
   case 'logout':
