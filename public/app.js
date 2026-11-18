@@ -105,7 +105,7 @@ function viewLogin(mode = 'login', errCode = '') {
     try {
       const r = await api('guest', { body: { lang: getLang() } });
       user = r.user; csrf = r.csrf; setLang(user.lang);
-      location.hash = '#/home';
+      location.hash = '#/train';
     } catch (err) { document.getElementById('err').textContent = errText(err); gBtn.disabled = false; }
   };
   document.getElementById('f').onsubmit = async (e) => {
@@ -115,7 +115,7 @@ function viewLogin(mode = 'login', errCode = '') {
     try {
       const r = await api(reg ? 'register' : 'login', { body });
       user = r.user; csrf = r.csrf; setLang(user.lang);
-      location.hash = '#/home';
+      location.hash = '#/train';
     } catch (err) { document.getElementById('err').textContent = errText(err); }
   };
 }
@@ -837,6 +837,6 @@ async function viewMine(my) {
     csrf = me.csrf; user = me.user; googleEnabled = !!me.google;
     if (user) setLang(user.lang);
   } catch {}
-  if (!location.hash) location.hash = user ? '#/home' : '#/login';
+  if (!location.hash) location.hash = user ? '#/train' : '#/login';
   route();
 })();

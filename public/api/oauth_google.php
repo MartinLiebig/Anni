@@ -71,7 +71,7 @@ if ($linkUid) {
 
 $st = $pdo->prepare('SELECT id FROM users WHERE google_sub = ?');
 $st->execute([$sub]);
-if ($row = $st->fetch()) { login_session((int)$row['id']); back('home'); }
+if ($row = $st->fetch()) { login_session((int)$row['id']); back('train'); }
 
 // Same email as a password account: do NOT auto-link (emails are not verified at password sign-up).
 $st = $pdo->prepare('SELECT 1 FROM users WHERE email = ?');
@@ -91,4 +91,4 @@ $first = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
 $pdo->prepare('INSERT INTO users (username, email, google_sub, pass_hash, is_admin, lang) VALUES (?,?,?,?,?,?)')
     ->execute([$name, $email, $sub, password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT), $first ? 1 : 0, 'de']);
 login_session((int)$pdo->lastInsertId());
-back('home');
+back('train');
