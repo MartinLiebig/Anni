@@ -2,6 +2,7 @@ import { Chess } from './vendor/chess.js';
 import { Board } from './board.js';
 import * as T from './tree.js';
 import { t, getLang, setLang } from './i18n.js';
+import { loadBook, bookLookup, findBookEnd } from './book.js';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -260,6 +261,34 @@ function gameHeader(game, mine, extra = '') {
   </div>`;
 }
 
+/** Render "still theory" / "out of theory" indicator (and optional book continuations) into `el`. */
+function renderTheory(el, fen, { lastBook = null, ply = 0, showNext = false, onPick = null } = {}) {
+  if (!el) return;
+  const hit = bookLookup(fen);
+  let html = '<div class="theory">';
+  if (hit) {
+    html += `<span class="pill in">📖 ${t('theory_in')}</span>`;
+    if (hit.eco) html += `<span class="eco">${esc(hit.eco)}</span>`;
+    if (hit.name) html += `<span>${esc(hit.name)}</span>`;
+  } else {
+    html += `<span class="pill out">✦ ${t('theory_out')}</span>`;
+    if (lastBook && lastBook.ply > 0 && ply > lastBook.ply) {
+      const mv = `${Math.ceil(lastBook.ply / 2)}${lastBook.ply % 2 ? '.' : '…'} ${esc(lastBook.san)}`;
+      html += `<span class="muted">${t('theory_left_after')} <b>${mv}</b>${lastBook.name ? ` (${esc(lastBook.eco)} ${esc(lastBook.name)})` : ''}</span>`;
+    }
+  }
+  html += '</div>';
+  if (showNext && hit && hit.next.length) {
+    html += `<div class="bookmoves"><span>${t('theory_moves')}</span>`;
+    for (const san of hit.next) {
+      html += onPick ? `<button type="button" class="ghost" data-bm="${esc(san)}">${esc(san)}</button>` : `<span><b>${esc(san)}</b></span>`;
+    }
+    html += '</div>';
+  }
+  el.innerHTML = html;
+  if (onPick) el.querySelectorAll('[data-bm]').forEach((b) => { b.onclick = () => onPick(b.dataset.bm); });
+}
+
 // ---------------------------------------------------------------- training
 async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   if (cleanup) { try { cleanup(); } catch {} cleanup = null; } // "new game" re-enters this view without a route change
@@ -309,6 +338,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       </div>
       <div class="side">
         <div id="bookinfo" class="muted"></div>
+        <div id="theory"></div>
         <div id="msg" class="msg"></div>
         <div id="browsebar" class="row" style="display:none;">
           <span class="live-badge show">● ${t('browsing')}</span>
@@ -405,11 +435,18 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   const board = new Board($('board'), { onMove: userMove });
   const msg = (cls, text) => { $('msg').className = 'msg ' + cls; $('msg').textContent = text; };
   const positionAt = (p) => { const c = new Chess(); for (let i = 0; i < p; i++) c.move(game.moves[i]); return c; };
+  let lastBook = null;
+  function updateTheory(c) {
+    if (!lastBook) return;
+    renderTheory($('theory'), c.fen(), { lastBook, ply: curPly(), showNext: S.view !== null || S.freeMode || S.done });
+  }
+  loadBook().then((b) => { if (b && my === viewId) { lastBook = findBookEnd(Chess, game.moves); updateTheory(S.view === null ? chess : positionAt(S.view)); } });
   function renderBoard() {
     const live = S.view === null;
     const c = live ? chess : positionAt(S.view);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: mine, lastMove: last ? { from: last.from, to: last.to } : null, hint: null, interactive: live && S.liveInteractive });
+    updateTheory(c);
   }
   function updateNav() {
     const p = curPly();
@@ -620,6 +657,7 @@ async function viewAnnotate(my, id) {
         <div class="row nav"><button id="first">⏮</button><button id="prev">◀</button><button id="next">▶</button><button id="last">⏭</button></div>
       </div>
       <div class="side">
+        <div id="theory"></div>
         <label class="chk"><input type="checkbox" id="showcm" ${showComments ? 'checked' : ''}> ${t('show_comments')}</label>
         <div id="ml" class="movelist tall"></div>
         <div class="row nags">
@@ -667,10 +705,19 @@ async function viewAnnotate(my, id) {
     return s + line(main0, ply + 1, vars.length > 0 || !!main0.comment);
   };
 
+  let lastBook = null;
+  loadBook().then((b) => { if (b && my === viewId) { lastBook = findBookEnd(Chess, game.moves); refresh(false); } });
+
   function refresh(syncText = false) {
     const c = T.chessAt(sel);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: game.side, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
+    if (lastBook) {
+      renderTheory($('#theory'), c.fen(), {
+        lastBook, ply: T.plyOf(sel), showNext: true,
+        onPick: (san) => { sel = T.addMove(sel, san); changed(); refresh(true); },
+      });
+    }
     nodes = [root];
     $('#ml').innerHTML = `<span class="mv${sel === root ? ' on' : ''}" data-i="0">${t('start_pos')}</span> ${root.comment && showComments ? `<span class="cm">${esc(root.comment)}</span> ` : ''}` + line(root, 0, true);
     main.querySelectorAll('[data-nag]').forEach((b) => {

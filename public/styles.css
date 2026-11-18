@@ -140,6 +140,14 @@ textarea { width: 100%; resize: vertical; }
 .live-badge { display: none; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600; color: var(--warn); }
 .live-badge.show { display: inline-flex; }
 
+.theory { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; font-size: .88rem; }
+.theory .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-weight: 650; font-size: .82rem; }
+.theory .pill.in { background: var(--brand-100); color: var(--brand-800); border: 1px solid var(--brand-200); }
+.theory .pill.out { background: #fdf3df; color: #8a5600; border: 1px solid #f0d7a0; }
+.theory .eco { font-weight: 700; color: var(--brand-800); }
+.bookmoves { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; font-size: .86rem; color: var(--muted); }
+.bookmoves button { padding: 2px 9px; font-size: .84rem; border-radius: 999px; }
+
 .btn.google { display: block; text-align: center; margin-top: 10px; }
 .notes textarea { margin-top: 4px; }
 
