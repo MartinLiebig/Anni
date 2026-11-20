@@ -154,8 +154,8 @@ export class Board {
       for (const f of files) {
         const sq = f + r;
         const p = chess.get(sq);
-        const dark = (FILES.indexOf(f) + r) % 2 === 1 ? 'light' : 'dark';
-        const cls = ['sq', dark];
+        const shade = (FILES.indexOf(f) + r) % 2 === 1 ? 'dark' : 'light';
+        const cls = ['sq', shade];
         if (lastMove && (lastMove.from === sq || lastMove.to === sq)) cls.push('last');
         if (this.selected === sq) cls.push('sel');
         if (hint === sq) cls.push('hint');
