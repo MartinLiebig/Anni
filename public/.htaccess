@@ -5,3 +5,10 @@
   </IfModule>
 </FilesMatch>
 Options -Indexes
+
+# Revalidate app shell and JS/CSS on load so deploys take effect immediately
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

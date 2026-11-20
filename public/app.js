@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js';
-import * as T from './tree.js';
-import { t, getLang, setLang } from './i18n.js';
-import { loadBook, bookLookup, findBookEnd } from './book.js';
+import { Board } from './board.js?v=20261120';
+import * as T from './tree.js?v=20261120';
+import { t, getLang, setLang } from './i18n.js?v=20261120';
+import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261120';
 
 const API = 'api/index.php';
 let csrf = '';
