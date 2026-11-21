@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261121d';
-import * as T from './tree.js?v=20261121d';
-import { t, getLang, setLang } from './i18n.js?v=20261121d';
-import { loadBook, bookLookup } from './book.js?v=20261121d';
+import { Board } from './board.js?v=20261121e';
+import * as T from './tree.js?v=20261121e';
+import { t, getLang, setLang } from './i18n.js?v=20261121e';
+import { loadBook, bookLookup } from './book.js?v=20261121e';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -538,6 +538,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   function afterFreeStep() {
     if (S.ply >= game.moves.length) { draw({ interactive: false }); finish(); } else draw({ interactive: true });
   }
+  const recordTried = (san) => { T.addMove(ensureNode(S.ply), san); noteDirty = true; };
 
   function userMove(m) {
     if (S.busy || S.done || S.view !== null) return;
@@ -547,7 +548,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       let r;
       try { r = probe.move(m); } catch { return draw({ interactive: true }); }
       if (norm(r.san) === norm(expected)) msg('ok', t('correct'));
-      else msg('bad', `${t('revealed')} ${expected}`);
+      else { recordTried(r.san); msg('bad', `${t('revealed')} ${expected}`); }
       playExpected();
       return afterFreeStep();
     }
@@ -564,6 +565,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       msg('ok', t('correct'));
       timer = setTimeout(advance, 350);
     } else {
+      recordTried(r.san);
       S.userMoves -= 1; // only count the move once it is solved
       S.tries++; S.wrong++;
       const left = MAX_TRIES - S.tries;
