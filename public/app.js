@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261120';
-import * as T from './tree.js?v=20261120';
-import { t, getLang, setLang } from './i18n.js?v=20261120';
-import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261120';
+import { Board } from './board.js?v=20261120b';
+import * as T from './tree.js?v=20261120b';
+import { t, getLang, setLang } from './i18n.js?v=20261120b';
+import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261120b';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -10,6 +10,8 @@ let user = null;
 let googleEnabled = false;
 let showComments = localStorage.getItem('showComments') !== '0'; // collapse/expand comments in move lists
 let onlyDecisive = localStorage.getItem('only_decisive') === '1'; // filter games to 1-0 and 0-1 results only
+let theme = localStorage.getItem('theme') || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+document.documentElement.dataset.theme = theme;
 let viewId = 0;          // incremented on each navigation; async callbacks compare to drop stale work
 let cleanup = null;      // per-view teardown (key handlers, pending saves)
 
@@ -44,11 +46,18 @@ function shell(inner) {
       <strong class="brand"><span class="logo">♞</span><span>Anni<small>SV Bottrop 21</small></span></strong>
       ${user ? `<nav>${links.map(([h, k]) => `<a href="#/${h}" class="${cur === h ? 'on' : ''}">${t(k)}</a>`).join('')}</nav>` : ''}
       <span class="grow"></span>
+      <button id="theme" class="ghost" title="${t('dark_mode')}">${theme === 'dark' ? '☀️' : '🌙'}</button>
       <button id="fs" class="ghost" title="${t('fullscreen')}">⛶</button>
       <button id="lang" class="ghost">${getLang() === 'de' ? 'EN' : 'DE'}</button>
       ${user ? `<span class="who">${esc(user.username)}</span><button id="logout" class="ghost">${t('logout')}</button>` : ''}
     </header>
     <main>${inner}</main>`;
+  document.getElementById('theme').onclick = () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+    document.getElementById('theme').textContent = theme === 'dark' ? '☀️' : '🌙';
+  };
   document.getElementById('fs').onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); };
   document.getElementById('lang').onclick = async () => {
     setLang(getLang() === 'de' ? 'en' : 'de');
