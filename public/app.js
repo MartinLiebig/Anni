@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261120b';
-import * as T from './tree.js?v=20261120b';
-import { t, getLang, setLang } from './i18n.js?v=20261120b';
-import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261120b';
+import { Board } from './board.js?v=20261121';
+import * as T from './tree.js?v=20261121';
+import { t, getLang, setLang } from './i18n.js?v=20261121';
+import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261121';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -35,6 +35,7 @@ async function api(action, { body, params } = {}) {
 }
 
 const norm = (san) => san.replace(/[+#!?]/g, '');
+const lichessUrl = (fen, side) => `https://lichess.org/analysis/${fen.replace(/ /g, '_')}?color=${side === 'b' ? 'black' : 'white'}`;
 const errText = (e) => t('err_' + e.code) !== 'err_' + e.code ? t('err_' + e.code) : t('err_generic') + (e.code || e.message);
 
 // ---------------------------------------------------------------- shell / routing
@@ -366,6 +367,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
         <div class="row">
           <button id="hint" class="ghost">${t('hint')}</button>
           <button id="freetrain" class="ghost" title="${t('free_mode_tt')}">${t('free_mode')}</button>
+          <a id="lichess" class="btn ghost" target="_blank" rel="noopener" href="#">${t('open_lichess')}</a>
           <button id="skip" class="primary">${t('new_game')}</button>
         </div>
         <div class="row" style="gap:6px 14px;">
@@ -465,6 +467,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     const c = live ? chess : positionAt(S.view);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: mine, lastMove: last ? { from: last.from, to: last.to } : null, hint: null, interactive: live && S.liveInteractive });
+    $('lichess').href = lichessUrl(c.fen(), mine);
     updateTheory(c);
   }
   function updateNav() {
@@ -691,6 +694,7 @@ async function viewAnnotate(my, id) {
           <button id="save" class="primary">${t('save')}</button>
           <button id="exp">${t('export_game')}</button>
           <a class="btn" href="${API}?a=export">${t('export_all')}</a>
+          <a id="lichess" class="btn ghost" target="_blank" rel="noopener" href="#">${t('open_lichess')}</a>
           <span id="st" class="muted"></span>
         </div>
       </div>
@@ -731,6 +735,7 @@ async function viewAnnotate(my, id) {
     const c = T.chessAt(sel);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: game.side, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
+    $('#lichess').href = lichessUrl(c.fen(), game.side);
     if (lastBook) {
       renderTheory($('#theory'), c.fen(), {
         lastBook, ply: T.plyOf(sel), showNext: true,
