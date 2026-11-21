@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261121b';
-import * as T from './tree.js?v=20261121b';
-import { t, getLang, setLang } from './i18n.js?v=20261121b';
-import { loadBook, bookLookup } from './book.js?v=20261121b';
+import { Board } from './board.js?v=20261121c';
+import * as T from './tree.js?v=20261121c';
+import { t, getLang, setLang } from './i18n.js?v=20261121c';
+import { loadBook, bookLookup } from './book.js?v=20261121c';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -36,6 +36,35 @@ async function api(action, { body, params } = {}) {
 
 const norm = (san) => san.replace(/[+#!?]/g, '');
 const lichessUrl = (fen, side) => `https://lichess.org/analysis/${fen.replace(/ /g, '_')}?color=${side === 'b' ? 'black' : 'white'}`;
+function gamePgn(game, root) {
+  const q = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const hdrs = [
+    ['Event', game.event || '?'], ['Site', game.site || '?'], ['Date', game.date || '????.??.??'],
+    ['Round', game.round || '?'], ['White', game.white], ['Black', game.black], ['Result', game.result || '*'],
+  ];
+  if (game.white_elo) hdrs.push(['WhiteElo', game.white_elo]);
+  if (game.black_elo) hdrs.push(['BlackElo', game.black_elo]);
+  if (game.eco) hdrs.push(['ECO', game.eco]);
+  return hdrs.map(([k, v]) => `[${k} "${q(v)}"]`).join('\n') + '\n\n' + T.toMovetext(root) + ' ' + (game.result || '*') + '\n';
+}
+async function openOnLichess(game, root, ply, side, fallbackFen) {
+  const win = window.open('about:blank', '_blank'); // open synchronously so mobile Safari does not block it
+  try {
+    const res = await fetch('https://lichess.org/api/import', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: new URLSearchParams({ pgn: gamePgn(game, root) }),
+    });
+    const d = await res.json();
+    if (d && d.id) {
+      const target = `https://lichess.org/${d.id}${side === 'b' ? '/black' : ''}#${ply}`;
+      if (win) win.location.href = target; else location.href = target;
+      return;
+    }
+  } catch {}
+  const fb = lichessUrl(fallbackFen, side);
+  if (win) win.location.href = fb; else location.href = fb;
+}
 const errText = (e) => t('err_' + e.code) !== 'err_' + e.code ? t('err_' + e.code) : t('err_generic') + (e.code || e.message);
 
 // ---------------------------------------------------------------- shell / routing
@@ -360,7 +389,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
         <div class="row">
           <button id="hint" class="ghost">${t('hint')}</button>
           <button id="freetrain" class="ghost" title="${t('free_mode_tt')}">${t('free_mode')}</button>
-          <a id="lichess" class="btn ghost" target="_blank" rel="noopener" href="#">${t('open_lichess')}</a>
+          <button id="lichess" type="button" class="ghost">${t('open_lichess')}</button>
           <button id="skip" class="primary">${t('new_game')}</button>
         </div>
         <div class="row" style="gap:6px 14px;">
@@ -460,9 +489,12 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     const c = live ? chess : positionAt(S.view);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: mine, lastMove: last ? { from: last.from, to: last.to } : null, hint: null, interactive: live && S.liveInteractive });
-    $('lichess').href = lichessUrl(c.fen(), mine);
     updateTheory(c);
   }
+  $('lichess').onclick = () => {
+    const c = S.view === null ? chess : positionAt(S.view);
+    openOnLichess(game, root, curPly(), mine, c.fen());
+  };
   function updateNav() {
     const p = curPly();
     const canStep = S.freeMode && !S.done && S.ply < game.moves.length;
@@ -687,7 +719,7 @@ async function viewAnnotate(my, id) {
           <button id="save" class="primary">${t('save')}</button>
           <button id="exp">${t('export_game')}</button>
           <a class="btn" href="${API}?a=export">${t('export_all')}</a>
-          <a id="lichess" class="btn ghost" target="_blank" rel="noopener" href="#">${t('open_lichess')}</a>
+          <button id="lichess" type="button" class="ghost">${t('open_lichess')}</button>
           <span id="st" class="muted"></span>
         </div>
       </div>
@@ -728,7 +760,6 @@ async function viewAnnotate(my, id) {
     const c = T.chessAt(sel);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: game.side, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
-    $('#lichess').href = lichessUrl(c.fen(), game.side);
     if (bookReady) {
       renderTheory($('#theory'), c.fen(), {
         showNext: true,
@@ -777,6 +808,7 @@ async function viewAnnotate(my, id) {
   $('#promote').onclick = () => { T.promote(sel); changed(); refresh(); };
   $('#save').onclick = save;
   $('#exp').onclick = async () => { await save(); location.href = `${API}?a=export&game_id=${game.id}`; };
+  $('#lichess').onclick = () => openOnLichess(game, root, T.plyOf(sel), game.side, T.chessAt(sel).fen());
 
   const keys = (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
