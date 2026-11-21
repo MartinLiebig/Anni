@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261121c';
-import * as T from './tree.js?v=20261121c';
-import { t, getLang, setLang } from './i18n.js?v=20261121c';
-import { loadBook, bookLookup } from './book.js?v=20261121c';
+import { Board } from './board.js?v=20261121d';
+import * as T from './tree.js?v=20261121d';
+import { t, getLang, setLang } from './i18n.js?v=20261121d';
+import { loadBook, bookLookup } from './book.js?v=20261121d';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -389,7 +389,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
         <div class="row">
           <button id="hint" class="ghost">${t('hint')}</button>
           <button id="freetrain" class="ghost" title="${t('free_mode_tt')}">${t('free_mode')}</button>
-          <button id="lichess" type="button" class="ghost">${t('open_lichess')}</button>
+          <button id="lichess" type="button" class="ghost" style="display:none;">${t('open_lichess')}</button>
           <button id="skip" class="primary">${t('new_game')}</button>
         </div>
         <div class="row" style="gap:6px 14px;">
@@ -629,6 +629,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
     S.busy = false;
     draw({ interactive: false });
     $('freetrain').disabled = true;
+    $('lichess').style.display = '';
     msg('', `${t('game_over')}: ${esc(game.result)}`);
     $('hd_res').innerHTML = `<b>${esc(game.result)}</b>`;
     const pct = S.userMoves ? Math.round((100 * S.firstTry) / S.userMoves) : 0;
