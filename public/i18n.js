@@ -36,7 +36,7 @@ const D = {
     th_mate: 'Matt in 1–3', th_mate_d: 'Finde die Zugfolge, die den gegnerischen König mattsetzt.',
     th_back: 'Grundreihenmatt', th_back_d: 'Der König ist durch eigene Bauern eingesperrt – ein klassisches Mattmotiv.',
     th_end: 'Endspiele', th_end_d: 'Grundlegende Endspiele sicher gewinnen oder halten.',
-    theory_in: 'Theorie', theory_out: 'Außerhalb der Theorie', theory_left_after: 'Theorie verlassen nach', theory_moves: 'Buchzüge:',
+    theory_in: 'Theorie', theory_moves: 'Buchzüge:',
     guest_login: 'Als Gast fortfahren (alle Eröffnungen)', dark_mode: 'Dunkelmodus umschalten', open_lichess: 'Lichess-Analyse ↗',
   },
   en: {
@@ -76,7 +76,7 @@ const D = {
     th_mate: 'Mate in 1–3', th_mate_d: 'Find the sequence of moves that checkmates the enemy king.',
     th_back: 'Back-rank mate', th_back_d: 'The king is trapped behind its own pawns – a classic mating pattern.',
     th_end: 'Endgames', th_end_d: 'Win or hold the basic endgames with confidence.',
-    theory_in: 'Theory', theory_out: 'Out of theory', theory_left_after: 'Left theory after', theory_moves: 'Book moves:',
+    theory_in: 'Theory', theory_moves: 'Book moves:',
     guest_login: 'Continue as Guest (all openings)', dark_mode: 'Toggle dark mode', open_lichess: 'Lichess analysis ↗',
   },
 };

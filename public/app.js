@@ -1,8 +1,8 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261121';
-import * as T from './tree.js?v=20261121';
-import { t, getLang, setLang } from './i18n.js?v=20261121';
-import { loadBook, bookLookup, findBookEnd } from './book.js?v=20261121';
+import { Board } from './board.js?v=20261121b';
+import * as T from './tree.js?v=20261121b';
+import { t, getLang, setLang } from './i18n.js?v=20261121b';
+import { loadBook, bookLookup } from './book.js?v=20261121b';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -281,24 +281,17 @@ function gameHeader(game, mine, extra = '') {
   </div>`;
 }
 
-/** Render "still theory" / "out of theory" indicator (and optional book continuations) into `el`. */
-function renderTheory(el, fen, { lastBook = null, ply = 0, showNext = false, onPick = null } = {}) {
+/** Render "still theory" indicator (and optional book continuations) into `el`; empty when out of book. */
+function renderTheory(el, fen, { showNext = false, onPick = null } = {}) {
   if (!el) return;
   const hit = bookLookup(fen);
+  if (!hit) { el.innerHTML = ''; return; }
   let html = '<div class="theory">';
-  if (hit) {
-    html += `<span class="pill in">📖 ${t('theory_in')}</span>`;
-    if (hit.eco) html += `<span class="eco">${esc(hit.eco)}</span>`;
-    if (hit.name) html += `<span>${esc(hit.name)}</span>`;
-  } else {
-    html += `<span class="pill out">✦ ${t('theory_out')}</span>`;
-    if (lastBook && lastBook.ply > 0 && ply > lastBook.ply) {
-      const mv = `${Math.ceil(lastBook.ply / 2)}${lastBook.ply % 2 ? '.' : '…'} ${esc(lastBook.san)}`;
-      html += `<span class="muted">${t('theory_left_after')} <b>${mv}</b>${lastBook.name ? ` (${esc(lastBook.eco)} ${esc(lastBook.name)})` : ''}</span>`;
-    }
-  }
+  html += `<span class="pill in">📖 ${t('theory_in')}</span>`;
+  if (hit.eco) html += `<span class="eco">${esc(hit.eco)}</span>`;
+  if (hit.name) html += `<span>${esc(hit.name)}</span>`;
   html += '</div>';
-  if (showNext && hit && hit.next.length) {
+  if (showNext && hit.next.length) {
     html += `<div class="bookmoves"><span>${t('theory_moves')}</span>`;
     for (const san of hit.next) {
       html += onPick ? `<button type="button" class="ghost" data-bm="${esc(san)}">${esc(san)}</button>` : `<span><b>${esc(san)}</b></span>`;
@@ -456,12 +449,12 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   const board = new Board($('board'), { onMove: userMove });
   const msg = (cls, text) => { $('msg').className = 'msg ' + cls; $('msg').textContent = text; };
   const positionAt = (p) => { const c = new Chess(); for (let i = 0; i < p; i++) c.move(game.moves[i]); return c; };
-  let lastBook = null;
+  let bookReady = false;
   function updateTheory(c) {
-    if (!lastBook) return;
-    renderTheory($('theory'), c.fen(), { lastBook, ply: curPly(), showNext: S.view !== null || S.freeMode || S.done });
+    if (!bookReady) return;
+    renderTheory($('theory'), c.fen(), { showNext: S.view !== null || S.freeMode || S.done });
   }
-  loadBook().then((b) => { if (b && my === viewId) { lastBook = findBookEnd(Chess, game.moves); updateTheory(S.view === null ? chess : positionAt(S.view)); } });
+  loadBook().then((b) => { if (b && my === viewId) { bookReady = true; updateTheory(S.view === null ? chess : positionAt(S.view)); } });
   function renderBoard() {
     const live = S.view === null;
     const c = live ? chess : positionAt(S.view);
@@ -728,17 +721,17 @@ async function viewAnnotate(my, id) {
     return s + line(main0, ply + 1, vars.length > 0 || !!main0.comment);
   };
 
-  let lastBook = null;
-  loadBook().then((b) => { if (b && my === viewId) { lastBook = findBookEnd(Chess, game.moves); refresh(false); } });
+  let bookReady = false;
+  loadBook().then((b) => { if (b && my === viewId) { bookReady = true; refresh(false); } });
 
   function refresh(syncText = false) {
     const c = T.chessAt(sel);
     const last = c.history({ verbose: true }).at(-1);
     board.set({ fen: c.fen(), orientation: game.side, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
     $('#lichess').href = lichessUrl(c.fen(), game.side);
-    if (lastBook) {
+    if (bookReady) {
       renderTheory($('#theory'), c.fen(), {
-        lastBook, ply: T.plyOf(sel), showNext: true,
+        showNext: true,
         onPick: (san) => { sel = T.addMove(sel, san); changed(); refresh(true); },
       });
     }
