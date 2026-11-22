@@ -38,6 +38,7 @@ const D = {
     th_end: 'Endspiele', th_end_d: 'Grundlegende Endspiele sicher gewinnen oder halten.',
     theory_in: 'Theorie', theory_moves: 'Buchzüge:',
     guest_login: 'Als Gast fortfahren (alle Eröffnungen)', dark_mode: 'Dunkelmodus umschalten', open_lichess: 'Lichess-Analyse ↗',
+    sf_toggle: 'Stockfish 19', sf_depth: 'Tiefe', sf_lines: 'Varianten', sf_thinking: 'berechnet …', copy_pgn: 'PGN kopieren', copied: 'Kopiert ✓', flip_board: 'Brett drehen',
   },
   en: {
     app: 'Chess Training', login: 'Log in', register: 'Register', logout: 'Log out',
@@ -78,6 +79,7 @@ const D = {
     th_end: 'Endgames', th_end_d: 'Win or hold the basic endgames with confidence.',
     theory_in: 'Theory', theory_moves: 'Book moves:',
     guest_login: 'Continue as Guest (all openings)', dark_mode: 'Toggle dark mode', open_lichess: 'Lichess analysis ↗',
+    sf_toggle: 'Stockfish 19', sf_depth: 'Depth', sf_lines: 'Lines', sf_thinking: 'calculating …', copy_pgn: 'Copy PGN', copied: 'Copied ✓', flip_board: 'Flip board',
   },
 };
 

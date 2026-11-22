@@ -1,8 +1,9 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261121e';
-import * as T from './tree.js?v=20261121e';
-import { t, getLang, setLang } from './i18n.js?v=20261121e';
-import { loadBook, bookLookup } from './book.js?v=20261121e';
+import { Board } from './board.js?v=20261122';
+import * as T from './tree.js?v=20261122';
+import { t, getLang, setLang } from './i18n.js?v=20261122';
+import { loadBook, bookLookup } from './book.js?v=20261122';
+import { Engine, fmtScore, evalPct } from './engine.js?v=20261122';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -697,16 +698,35 @@ async function viewAnnotate(my, id) {
   let sel = root;
   let dirty = false;
   let saveTimer = null;
+  let orientation = game.side;
+  let sfOn = localStorage.getItem('sf_on') !== '0';
+  let sfLines = Math.max(1, Math.min(5, +(localStorage.getItem('sf_lines') || 3)));
+  const engine = new Engine();
+  engine.multipv = sfLines;
 
   const main = shell(`
     <h2>${t('annotate_title')}</h2>
     <div class="game-layout with-nav">
       <div class="boardwrap">
         ${gameHeader(game, null, `<span><b>${esc(game.result)}</b></span>${game.opening_name || game.eco ? `<span>${esc(game.opening_name || game.eco)}</span>` : ''}`)}
-        <div id="board"></div>
-        <div class="row nav"><button id="first">⏮</button><button id="prev">◀</button><button id="next">▶</button><button id="last">⏭</button></div>
+        <div class="board-row">
+          <div id="evalbar" class="evalbar" style="display:${sfOn ? 'flex' : 'none'}"><div class="fill" style="height:50%"></div><span class="lbl top"></span><span class="lbl bot"></span></div>
+          <div id="board"></div>
+        </div>
+        <div class="row nav"><button id="first">⏮</button><button id="prev">◀</button><button id="next">▶</button><button id="last">⏭</button><button id="flip" title="${t('flip_board')}">⇅</button></div>
       </div>
       <div class="side">
+        <div class="card sf-panel">
+          <div class="sf-head">
+            <label><input type="checkbox" id="sf_on" ${sfOn ? 'checked' : ''}> ${t('sf_toggle')}</label>
+            <span id="sf_depth" class="muted"></span>
+            <span class="grow"></span>
+            <label class="muted">${t('sf_lines')}:
+              <select id="sf_pv_n">${[1, 2, 3, 5].map((n) => `<option value="${n}" ${n === sfLines ? 'selected' : ''}>${n}</option>`).join('')}</select>
+            </label>
+          </div>
+          <div id="sf_pvs" class="sf-pvs"></div>
+        </div>
         <div id="theory"></div>
         <label class="chk"><input type="checkbox" id="showcm" ${showComments ? 'checked' : ''}> ${t('show_comments')}</label>
         <div id="ml" class="movelist tall"></div>
@@ -721,6 +741,7 @@ async function viewAnnotate(my, id) {
         <div class="row">
           <button id="save" class="primary">${t('save')}</button>
           <button id="exp">${t('export_game')}</button>
+          <button id="copypgn" type="button" class="ghost">${t('copy_pgn')}</button>
           <a class="btn" href="${API}?a=export">${t('export_all')}</a>
           <button id="lichess" type="button" class="ghost">${t('open_lichess')}</button>
           <span id="st" class="muted"></span>
@@ -730,6 +751,43 @@ async function viewAnnotate(my, id) {
   const $ = (q) => main.querySelector(q);
   const board = new Board($('#board'), { onMove });
   let nodes = [];
+  let curLines = [];
+
+  function formatPv(fen, sans) {
+    const parts = fen.split(' ');
+    const startTurn = parts[1] || 'w';
+    let num = +parts[5] || 1;
+    let html = '';
+    sans.forEach((m, idx) => {
+      const isW = (startTurn === 'w') ? (idx % 2 === 0) : (idx % 2 === 1);
+      if (isW) html += `<span class="num">${num}.</span>`;
+      else if (idx === 0) html += `<span class="num">${num}…</span>`;
+      html += `<span class="m" data-step="${idx + 1}">${esc(m.san)}</span> `;
+      if (!isW) num++;
+    });
+    return html;
+  }
+
+  function renderEngine({ depth, lines }) {
+    if (my !== viewId || !sfOn) return;
+    curLines = lines;
+    $('#sf_depth').textContent = depth ? `${t('sf_depth')} ${depth}` : t('sf_thinking');
+    const cFen = T.chessAt(sel).fen();
+    $('#sf_pvs').innerHTML = lines.map((l, i) => {
+      const txt = fmtScore(l.kind, l.val);
+      const cls = l.val >= 0 ? 'w' : 'b';
+      return `<div class="sf-pv" data-pv="${i}"><span class="sf-score ${cls}">${esc(txt)}</span><div class="sf-moves">${formatPv(cFen, l.sans)}</div></div>`;
+    }).join('');
+    if (lines[0]) {
+      const pct = evalPct(lines[0].kind, lines[0].val);
+      const txt = fmtScore(lines[0].kind, lines[0].val);
+      const bar = $('#evalbar');
+      bar.classList.toggle('flipped', orientation === 'b');
+      bar.querySelector('.fill').style.height = `${pct}%`;
+      bar.querySelector('.top').textContent = lines[0].val < 0 ? txt : '';
+      bar.querySelector('.bot').textContent = lines[0].val >= 0 ? txt : '';
+    }
+  }
 
   function onMove(m) {
     const c = T.chessAt(sel);
@@ -762,7 +820,12 @@ async function viewAnnotate(my, id) {
   function refresh(syncText = false) {
     const c = T.chessAt(sel);
     const last = c.history({ verbose: true }).at(-1);
-    board.set({ fen: c.fen(), orientation: game.side, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
+    board.set({ fen: c.fen(), orientation, lastMove: last ? { from: last.from, to: last.to } : null, interactive: true });
+    $('#evalbar').classList.toggle('flipped', orientation === 'b');
+    if (sfOn) {
+      $('#sf_depth').textContent = t('sf_thinking');
+      engine.analyze(c.fen(), { onUpdate: renderEngine });
+    }
     if (bookReady) {
       renderTheory($('#theory'), c.fen(), {
         showNext: true,
@@ -805,13 +868,40 @@ async function viewAnnotate(my, id) {
   $('#prev').onclick = () => go(sel.parent);
   $('#next').onclick = () => go(sel.children[0]);
   $('#last').onclick = () => go(lastOfLine(sel));
+  $('#flip').onclick = () => { orientation = orientation === 'w' ? 'b' : 'w'; refresh(false); };
+  $('#sf_on').onchange = (e) => {
+    sfOn = e.target.checked;
+    localStorage.setItem('sf_on', sfOn ? '1' : '0');
+    $('#evalbar').style.display = sfOn ? 'flex' : 'none';
+    if (sfOn) { $('#sf_depth').textContent = t('sf_thinking'); engine.analyze(T.chessAt(sel).fen(), { onUpdate: renderEngine }); }
+    else { engine.stop(); $('#sf_depth').textContent = ''; $('#sf_pvs').innerHTML = ''; }
+  };
+  $('#sf_pv_n').onchange = (e) => {
+    sfLines = +e.target.value;
+    localStorage.setItem('sf_lines', String(sfLines));
+    engine.setMultiPV(sfLines);
+  };
+  $('#sf_pvs').onclick = (e) => {
+    const row = e.target.closest('[data-pv]');
+    if (!row) return;
+    const lineData = curLines[+row.dataset.pv];
+    if (!lineData || !lineData.sans.length) return;
+    const mvEl = e.target.closest('[data-step]');
+    const steps = mvEl ? +mvEl.dataset.step : 1;
+    for (let i = 0; i < steps && i < lineData.sans.length; i++) sel = T.addMove(sel, lineData.sans[i].san);
+    changed(); refresh(true);
+  };
   main.querySelectorAll('[data-nag]').forEach((b) => { b.onclick = () => { T.toggleNag(sel, +b.dataset.nag); changed(); refresh(); }; });
   $('#cm').oninput = (e) => { sel.comment = e.target.value; changed(); refresh(); };
   $('#del').onclick = () => { sel = T.removeNode(sel); changed(); refresh(true); };
   $('#promote').onclick = () => { T.promote(sel); changed(); refresh(); };
   $('#save').onclick = save;
   $('#exp').onclick = async () => { await save(); location.href = `${API}?a=export&game_id=${game.id}`; };
-  $('#lichess').onclick = () => openOnLichess(game, root, T.plyOf(sel), game.side, T.chessAt(sel).fen());
+  $('#copypgn').onclick = async () => {
+    await navigator.clipboard?.writeText(gamePgn(game, root)).catch(() => {});
+    $('#st').textContent = t('copied');
+  };
+  $('#lichess').onclick = () => openOnLichess(game, root, T.plyOf(sel), orientation, T.chessAt(sel).fen());
 
   const keys = (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
@@ -821,7 +911,7 @@ async function viewAnnotate(my, id) {
     else if (e.key === 'End') { go(lastOfLine(sel)); e.preventDefault(); }
   };
   document.addEventListener('keydown', keys);
-  cleanup = () => { document.removeEventListener('keydown', keys); save(); };
+  cleanup = () => { document.removeEventListener('keydown', keys); engine.destroy(); save(); };
 
   refresh(true);
 }
