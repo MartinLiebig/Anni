@@ -1,9 +1,9 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261122b';
-import * as T from './tree.js?v=20261122b';
-import { t, getLang, setLang } from './i18n.js?v=20261122b';
-import { loadBook, bookLookup } from './book.js?v=20261122b';
-import { Engine, fmtScore, evalPct } from './engine.js?v=20261122b';
+import { Board } from './board.js?v=20261122c';
+import * as T from './tree.js?v=20261122c';
+import { t, getLang, setLang } from './i18n.js?v=20261122c';
+import { loadBook, bookLookup } from './book.js?v=20261122c';
+import { Engine, fmtScore, evalPct } from './engine.js?v=20261122c';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -678,8 +678,10 @@ async function viewAnnotate(my, id) {
   let orientation = game.side;
   let sfOn = localStorage.getItem('sf_on') !== '0';
   let sfLines = Math.max(1, Math.min(5, +(localStorage.getItem('sf_lines') || 3)));
+  let sfDepth = +(localStorage.getItem('sf_depth') ?? 18);
   const engine = new Engine();
   engine.multipv = sfLines;
+  engine.depth = sfDepth;
 
   const main = shell(`
     <h2>${t('annotate_title')}</h2>
@@ -698,6 +700,9 @@ async function viewAnnotate(my, id) {
             <label><input type="checkbox" id="sf_on" ${sfOn ? 'checked' : ''}> ${t('sf_toggle')}</label>
             <span id="sf_depth" class="muted"></span>
             <span class="grow"></span>
+            <label class="muted">${t('sf_depth')}:
+              <select id="sf_depth_sel">${[14, 18, 22, 26, 0].map((d) => `<option value="${d}" ${d === sfDepth ? 'selected' : ''}>${d || '∞'}</option>`).join('')}</select>
+            </label>
             <label class="muted">${t('sf_lines')}:
               <select id="sf_pv_n">${[1, 2, 3, 5].map((n) => `<option value="${n}" ${n === sfLines ? 'selected' : ''}>${n}</option>`).join('')}</select>
             </label>
@@ -856,6 +861,12 @@ async function viewAnnotate(my, id) {
     sfLines = +e.target.value;
     localStorage.setItem('sf_lines', String(sfLines));
     engine.setMultiPV(sfLines);
+  };
+  $('#sf_depth_sel').onchange = (e) => {
+    sfDepth = +e.target.value;
+    localStorage.setItem('sf_depth', String(sfDepth));
+    if (sfOn) { $('#sf_depth').textContent = t('sf_thinking'); engine.setDepth(sfDepth); }
+    else engine.depth = sfDepth;
   };
   $('#sf_pvs').onclick = (e) => {
     const row = e.target.closest('[data-pv]');

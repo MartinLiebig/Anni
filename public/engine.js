@@ -80,9 +80,14 @@ export class Engine {
     }
   }
 
+  setDepth(d) {
+    this.depth = d === 'inf' || +d <= 0 ? 0 : Math.max(8, Math.min(40, +d));
+    if (this.worker && this.ready && this.fen) this.analyze(this.fen, { onUpdate: this.onUpdate });
+  }
+
   analyze(fen, opts = {}) {
     if (opts.onUpdate) this.onUpdate = opts.onUpdate;
-    if (opts.depth) this.depth = opts.depth;
+    if (opts.depth !== undefined) this.depth = opts.depth === 'inf' || +opts.depth <= 0 ? 0 : +opts.depth;
     this.fen = fen;
     this.lines = [];
     this.curDepth = 0;
@@ -90,7 +95,7 @@ export class Engine {
     if (!this.ready) { this._pending = { fen, opts }; return; }
     this.worker.postMessage('stop');
     this.worker.postMessage(`position fen ${fen}`);
-    this.worker.postMessage(`go depth ${this.depth}`);
+    this.worker.postMessage(this.depth > 0 ? `go depth ${this.depth}` : 'go infinite');
   }
 
   stop() {
