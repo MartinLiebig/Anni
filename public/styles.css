@@ -310,3 +310,15 @@ textarea { width: 100%; resize: vertical; }
 :root[data-theme="dark"] .sf-pv:hover { background: #153052; }
 :root[data-theme="dark"] .sf-moves .m:hover { background: #1c416e; }
 :root[data-theme="dark"] .evalbar { border-color: #264873; }
+
+/* ---------- endgames training ---------- */
+.lvl-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.lvl-tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.eg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.eg-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, transform .08s; }
+.eg-card:hover { border-color: var(--brand-500); transform: translateY(-1px); }
+.eg-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-500) 28%, transparent), var(--shadow); }
+.eg-card h3 { margin: 0; font-size: 1.02rem; color: var(--brand-900); }
+.eg-card p { margin: 0; font-size: .88rem; color: var(--muted); }
+.eg-card .eg-mini { width: 100%; max-width: 170px; margin: 4px auto 0; pointer-events: none; }
+:root[data-theme="dark"] .eg-card h3 { color: #8ec0f9; }

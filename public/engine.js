@@ -32,6 +32,13 @@ export class Engine {
       if (this._pending) { const p = this._pending; this._pending = null; this.analyze(p.fen, p.opts); }
       return;
     }
+    if (line.startsWith('bestmove ') && this._bestResolve) {
+      const bm = line.split(/\s+/)[1];
+      const res = this._bestResolve;
+      this._bestResolve = null;
+      res(bm && bm !== '(none)' ? bm : null);
+      return;
+    }
     if (!line.startsWith('info ') || !line.includes(' pv ')) return;
 
     const dm = /\bdepth (\d+)/.exec(line);
@@ -100,7 +107,15 @@ export class Engine {
 
   stop() {
     this._pending = null;
+    this._bestResolve = null;
     if (this.worker && this.ready) this.worker.postMessage('stop');
+  }
+
+  bestMove(fen, depth = 10) {
+    return new Promise((resolve) => {
+      this._bestResolve = resolve;
+      this.analyze(fen, { depth, onUpdate: null });
+    });
   }
 
   destroy() {

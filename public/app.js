@@ -1,9 +1,10 @@
 import { Chess } from './vendor/chess.js';
-import { Board } from './board.js?v=20261122c';
-import * as T from './tree.js?v=20261122c';
-import { t, getLang, setLang } from './i18n.js?v=20261122c';
-import { loadBook, bookLookup } from './book.js?v=20261122c';
-import { Engine, fmtScore, evalPct } from './engine.js?v=20261122c';
+import { Board } from './board.js?v=20261126';
+import * as T from './tree.js?v=20261126';
+import { t, getLang, setLang } from './i18n.js?v=20261126';
+import { loadBook, bookLookup } from './book.js?v=20261126';
+import { Engine, fmtScore, evalPct } from './engine.js?v=20261126';
+import { ENDGAMES } from './endgames.js?v=20261126';
 
 const API = 'api/index.php';
 let csrf = '';
@@ -51,7 +52,7 @@ const errText = (e) => t('err_' + e.code) !== 'err_' + e.code ? t('err_' + e.cod
 
 // ---------------------------------------------------------------- shell / routing
 function shell(inner) {
-  const links = [['home', 'nav_home'], ['openings', 'nav_openings'], ['train', 'nav_train'], ['tactics', 'nav_tactics'], ['mine', 'nav_mine']];
+  const links = [['home', 'nav_home'], ['openings', 'nav_openings'], ['train', 'nav_train'], ['endgames', 'nav_endgames'], ['tactics', 'nav_tactics'], ['mine', 'nav_mine']];
   const cur = location.hash.slice(2).split('/')[0] || 'home';
   app.innerHTML = `
     <header class="top">
@@ -94,6 +95,7 @@ async function route() {
       case 'train': return await viewTrain(my, {});
       case 'annotate': return await viewAnnotate(my, parseInt(arg, 10));
       case 'tactics': return await viewTactics(my);
+      case 'endgames': return await viewEndgames(my);
       case 'mine': return await viewMine(my);
       default: return await viewHome(my, arg);
     }
@@ -935,6 +937,174 @@ async function viewTactics(my) {
     demo.set({ fen: c.fen(), lastMove: { from: m.from, to: m.to }, interactive: false });
   };
   main.querySelector('#demo_reset').onclick = reset;
+}
+
+// ---------------------------------------------------------------- endgames (kids 3-level trainer)
+async function viewEndgames(my) {
+  let lvl = 1;
+  let cur = ENDGAMES.find((e) => e.level === lvl);
+  let altTurn = false;
+  let playUnlocked = false;
+  let busy = false;
+  let chess = new Chess(cur.fen);
+  const engine = new Engine();
+  const lang = () => (getLang() === 'en' ? 'en' : 'de');
+
+  const main = shell(`
+    <div class="hero">
+      <div class="big">♔</div>
+      <div><h2>${t('eg_title')}</h2><p>${t('eg_sub')}</p></div>
+    </div>
+    <div class="lvl-tabs" id="eg_tabs">
+      ${[1, 2, 3].map((n) => `<button type="button" data-lvl="${n}">${t('eg_level')} ${n}</button>`).join('')}
+    </div>
+    <div id="eg_cards" class="eg-grid"></div>
+    <div id="eg_stage" class="game-layout">
+      <div class="boardwrap">
+        <div id="eg_board"></div>
+      </div>
+      <div class="side card">
+        <h3 id="eg_title"></h3>
+        <p id="eg_task"></p>
+        <div id="eg_turn_sw" class="row" style="display:none;">
+          <button id="eg_tw" type="button">${t('eg_w_move')}</button>
+          <button id="eg_tb" type="button">${t('eg_b_move')}</button>
+        </div>
+        <div id="eg_quiz" class="row" style="display:none;">
+          <button id="eg_q_win" type="button" class="primary">${t('eg_w_wins')}</button>
+          <button id="eg_q_draw" type="button" class="primary">${t('eg_draw')}</button>
+        </div>
+        <div id="eg_msg" class="msg"></div>
+        <p id="eg_explain" class="muted"></p>
+        <div class="row">
+          <button id="eg_try" type="button" class="ghost" style="display:none;">${t('eg_try_board')}</button>
+          <button id="eg_hint_btn" type="button" class="ghost">${t('hint')}</button>
+          <button id="eg_reset" type="button">${t('eg_reset')}</button>
+        </div>
+      </div>
+    </div>`);
+  const $ = (q) => main.querySelector(q);
+  const board = new Board($('#eg_board'), { onMove });
+  cleanup = () => engine.destroy();
+
+  function renderCards() {
+    main.querySelectorAll('#eg_tabs button').forEach((b) => b.classList.toggle('on', +b.dataset.lvl === lvl));
+    const list = ENDGAMES.filter((e) => e.level === lvl);
+    $('#eg_cards').innerHTML = list.map((e) => {
+      const txt = e[lang()];
+      return `<div class="eg-card${e.id === cur.id ? ' on' : ''}" data-eg="${e.id}">
+        <h3>${esc(txt.title)}</h3>
+        <p>${esc(txt.task)}</p>
+        <div class="eg-mini" id="mini_${e.id}"></div>
+      </div>`;
+    }).join('');
+    list.forEach((e) => {
+      const mb = new Board(main.querySelector('#mini_' + e.id), { onMove() {} });
+      mb.set({ fen: e.fen, orientation: e.side, interactive: false });
+    });
+  }
+
+  function loadPuzzle(eg, keepAlt = false) {
+    engine.stop();
+    busy = false;
+    cur = eg;
+    if (!keepAlt) altTurn = false;
+    playUnlocked = eg.mode === 'play';
+    const fen = altTurn && eg.altFen ? eg.altFen : eg.fen;
+    chess = new Chess(fen);
+    const txt = eg[lang()];
+    $('#eg_title').textContent = txt.title;
+    $('#eg_task').textContent = txt.task;
+    $('#eg_msg').className = 'msg';
+    $('#eg_msg').textContent = '';
+    $('#eg_explain').textContent = '';
+    $('#eg_turn_sw').style.display = eg.altFen ? 'flex' : 'none';
+    $('#eg_tw').classList.toggle('primary', !altTurn);
+    $('#eg_tb').classList.toggle('primary', altTurn);
+    $('#eg_quiz').style.display = eg.mode === 'quiz' ? 'flex' : 'none';
+    $('#eg_try').style.display = eg.mode === 'quiz' ? 'inline-block' : 'none';
+    $('#eg_hint_btn').style.display = txt.hint ? 'inline-block' : 'none';
+    renderCards();
+    drawBoard();
+  }
+
+  function drawBoard() {
+    const h = chess.history({ verbose: true });
+    const last = h.at(-1);
+    const over = chess.isGameOver();
+    const myTurn = chess.turn() === cur.side;
+    board.set({
+      fen: chess.fen(),
+      orientation: cur.side,
+      lastMove: last ? { from: last.from, to: last.to } : null,
+      interactive: playUnlocked && !busy && !over && myTurn,
+    });
+    if (chess.isCheckmate()) { $('#eg_msg').className = 'msg ok'; $('#eg_msg').textContent = t('eg_mate'); }
+    else if (chess.isStalemate()) { $('#eg_msg').className = 'msg'; $('#eg_msg').textContent = t('eg_stalemate'); }
+    else if (chess.isDraw()) { $('#eg_msg').className = 'msg'; $('#eg_msg').textContent = t('eg_draw_pos'); }
+  }
+
+  async function onMove(m) {
+    if (!playUnlocked || busy || chess.isGameOver()) return;
+    let r;
+    try { r = chess.move(m); } catch { return drawBoard(); }
+    if (r.promotion && cur.id === 'l1_two_pawns') {
+      $('#eg_msg').className = 'msg ok';
+      $('#eg_msg').textContent = t('eg_promoted');
+    }
+    drawBoard();
+    if (chess.isGameOver()) return;
+    busy = true;
+    drawBoard();
+    const uci = await engine.bestMove(chess.fen(), 10);
+    if (my !== viewId) return;
+    busy = false;
+    if (uci) {
+      try { chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined }); } catch {}
+    }
+    drawBoard();
+  }
+
+  function answerQuiz(choice) {
+    const expected = altTurn && cur.altAnswer ? cur.altAnswer : cur.answer;
+    const ok = choice === expected;
+    $('#eg_msg').className = 'msg ' + (ok ? 'ok' : 'bad');
+    $('#eg_msg').textContent = ok ? t('eg_correct') : t('eg_wrong');
+    if (ok) $('#eg_explain').textContent = cur[lang()].explain || '';
+  }
+
+  $('#eg_tabs').onclick = (e) => {
+    const b = e.target.closest('[data-lvl]');
+    if (!b) return;
+    lvl = +b.dataset.lvl;
+    loadPuzzle(ENDGAMES.find((x) => x.level === lvl));
+  };
+  $('#eg_cards').onclick = (e) => {
+    const c = e.target.closest('[data-eg]');
+    if (c) loadPuzzle(ENDGAMES.find((x) => x.id === c.dataset.eg));
+  };
+  $('#eg_tw').onclick = () => { altTurn = false; loadPuzzle(cur, true); };
+  $('#eg_tb').onclick = () => { altTurn = true; loadPuzzle(cur, true); };
+  $('#eg_q_win').onclick = () => answerQuiz('win');
+  $('#eg_q_draw').onclick = () => answerQuiz('draw');
+  $('#eg_try').onclick = () => {
+    playUnlocked = true;
+    $('#eg_explain').textContent = cur[lang()].explain || '';
+    drawBoard();
+    if (chess.turn() !== cur.side && !chess.isGameOver()) {
+      busy = true; drawBoard();
+      engine.bestMove(chess.fen(), 10).then((uci) => {
+        if (my !== viewId) return;
+        busy = false;
+        if (uci) try { chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined }); } catch {}
+        drawBoard();
+      });
+    }
+  };
+  $('#eg_hint_btn').onclick = () => { $('#eg_explain').textContent = cur[lang()].hint || ''; };
+  $('#eg_reset').onclick = () => loadPuzzle(cur, true);
+
+  loadPuzzle(cur);
 }
 
 // ---------------------------------------------------------------- my annotations
