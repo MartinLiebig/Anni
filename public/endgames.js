@@ -107,31 +107,31 @@ export const ENDGAMES = [
 
   // ---------------- Level 3 ----------------
   {
-    id: 'l3_rb_right_corner', level: 3, mode: 'play', side: 'b', goal: 'draw',
-    fen: 'k7/8/1K6/8/3b4/8/8/6R1 b - - 0 1',
+    id: 'l3_bp_right_corner', level: 3, mode: 'play', side: 'w', goal: 'win',
+    fen: '7k/8/5K2/7P/8/2B5/8/8 w - - 0 1',
     de: {
-      title: 'Turm vs Läufer: Richtige Ecke',
-      task: 'Du spielst Schwarz. Dein König steht in der sicheren (weißen) Ecke, dein Läufer ist schwarzfeldrig. Halte Remis!',
-      hint: 'Bleibe mit dem König in der Ecke a8/b8 (bzw. auf Feldern entgegengesetzter Farbe zum Läufer) – Weiß kann dich nicht mattsetzen.',
+      title: 'Läufer & Randbauer: Richtige Ecke',
+      task: 'Weiß hat einen Läufer, der das Umwandlungsfeld h8 kontrolliert (schwarzfeldriger Läufer). Gewinne!',
+      hint: 'Vertreibe den schwarzen König mit Läuferschachs und König aus der Ecke h8 und wandle den Bauern um.',
     },
     en: {
-      title: 'Rook vs Bishop: The Right Corner',
-      task: 'You play Black. Your king is in the safe (light) corner with a dark-squared bishop. Hold the draw!',
-      hint: 'Keep your king near the safe corner (opposite color to your bishop) so White cannot force mate.',
+      title: 'Bishop & Rook-Pawn: The Right Corner',
+      task: 'White’s bishop controls the promotion square h8 (dark-squared bishop). Win the game!',
+      hint: 'Use your king and dark-squared bishop to drive Black’s king out of h8 and promote the h-pawn.',
     },
   },
   {
-    id: 'l3_rb_wrong_corner', level: 3, mode: 'play', side: 'w', goal: 'win',
-    fen: '7k/8/5K2/8/3b4/8/8/6R1 w - - 0 1',
+    id: 'l3_bp_wrong_corner', level: 3, mode: 'play', side: 'b', goal: 'draw',
+    fen: '7k/8/5K2/7P/8/3B4/8/8 b - - 0 1',
     de: {
-      title: 'Turm vs Läufer: Falsche Ecke',
-      task: 'Der schwarze König steht in der falschen (dunklen) Ecke – gleiche Farbe wie sein Läufer! Gewinne mit dem Turm.',
-      hint: 'Drohe Grundreihenmatt und nutze Züge über die g-/h-Linie, um den Läufer abzulenken oder zu fesseln.',
+      title: 'Läufer & Randbauer: Falsche Ecke',
+      task: 'Du spielst Schwarz. Der weiße Läufer ist weißfeldrig und kontrolliert h8 nicht! Halte Remis.',
+      hint: 'Bleibe mit deinem König in der Ecke (h8/g8) – Weiß kann dich nicht vertreiben, ohne Patt zu setzen.',
     },
     en: {
-      title: 'Rook vs Bishop: The Wrong Corner',
-      task: 'Black’s king is trapped in the wrong (dark) corner – the same color as its bishop! Win with the rook.',
-      hint: 'Threaten back-rank mate and use checks/pins to win the bishop or force checkmate.',
+      title: 'Bishop & Rook-Pawn: The Wrong Corner',
+      task: 'You play Black. White’s light-squared bishop does NOT control h8! Hold the draw.',
+      hint: 'Keep your king in the h8/g8 corner — White cannot force you out without stalemating.',
     },
   },
   {
