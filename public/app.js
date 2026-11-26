@@ -957,7 +957,7 @@ async function viewEndgames(my) {
     </div>
     <div class="lvl-tabs" id="eg_tabs">
       ${[1, 2, 3].map((n) => `<button type="button" data-lvl="${n}">${t('eg_level')} ${n}</button>`).join('')}
-      <a class="btn ghost" href="endgames-handout-${lang()}.pdf?v=20261126b" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;padding:7px 14px;border:1px solid var(--line);border-radius:999px;font-weight:600;">📄 ${t('eg_pdf')}</a>
+      <a class="btn ghost" href="endgames-handout-${lang()}.pdf?v=20261126c" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none;padding:7px 14px;border:1px solid var(--line);border-radius:999px;font-weight:600;">📄 ${t('eg_pdf')}</a>
     </div>
     <div id="eg_cards" class="eg-grid"></div>
     <div id="eg_stage" class="game-layout">

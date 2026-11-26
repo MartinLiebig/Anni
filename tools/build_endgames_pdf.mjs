@@ -17,7 +17,7 @@ const UI = {
   de: {
     brand: 'SV Bottrop 21 · Kinder- & Jugendtraining',
     title: 'Endspiel-Grundlagen — Arbeitsblatt',
-    subtitle: '3 Stufen vom Mattsetzen über Schlüsselregeln bis zu Turm vs. Läufer und Dame vs. Freibauer',
+    subtitle: '3 Stufen: Vom Mattsetzen über Schlüsselregeln bis zu Läufer & Randbauer und Dame vs. Freibauer',
     nameLabel: 'Name:',
     dateLabel: 'Datum:',
     level: 'Stufe',
@@ -36,7 +36,7 @@ const UI = {
   en: {
     brand: 'SV Bottrop 21 · Kids & Youth Training',
     title: 'Endgame Basics — Practice Handout',
-    subtitle: '3 levels from basic checkmates and key rules to Rook vs Bishop and Queen vs Pawn',
+    subtitle: '3 levels: from basic checkmates and key rules to Bishop & Rook-Pawn and Queen vs. Pawn',
     nameLabel: 'Name:',
     dateLabel: 'Date:',
     level: 'Level',
@@ -182,12 +182,12 @@ function renderHtml(lang) {
   @page { size: A4 portrait; margin: 12mm 13mm; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; font-size: 11px; line-height: 1.4; }
-  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 10px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 10px; }
   .brand { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1d4ed8; }
   h1 { margin: 2px 0 3px; font-size: 18px; color: #0f172a; }
   .sub { margin: 0; color: #475569; font-size: 10.5px; }
-  .meta { display: flex; gap: 14px; font-size: 10.5px; color: #334155; }
-  .meta span { border-bottom: 1px solid #94a3b8; min-width: 95px; display: inline-block; padding-bottom: 1px; }
+  .meta { display: flex; gap: 14px; font-size: 10.5px; color: #334155; flex-shrink: 0; white-space: nowrap; }
+  .meta span { border-bottom: 1px solid #94a3b8; min-width: 85px; display: inline-block; padding-bottom: 1px; }
   .lvl-section { margin-bottom: 10px; }
   .lvl-title { background: #1e3a8a; color: #fff; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 5px; margin: 8px 0 8px; break-after: avoid; }
   .ex-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
