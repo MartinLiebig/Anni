@@ -136,7 +136,7 @@ export const ENDGAMES = [
   },
   {
     id: 'l3_q_vs_7th_pawn', level: 3, mode: 'play', side: 'w', goal: 'win',
-    fen: '8/8/8/3Q4/8/2K5/4p3/5k2 w - - 0 1',
+    fen: '8/8/8/2KQ4/8/8/4p3/5k2 w - - 0 1',
     de: {
       title: 'Dame gegen Bauer auf der 7. Reihe',
       task: 'Gewinne mit der Dame gegen den e2-Bauern!',
