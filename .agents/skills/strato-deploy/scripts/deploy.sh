@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 ENV_FILE="$ROOT/.env"
 REMOTE_DIR="/mnt/web009/c1/31/51555031/htdocs/anni"
-SITE_URL="http://anni.sv-bottrop21.de"
+SITE_URL="https://sv-bottrop21.de/anni"
 DRY_RUN=false
 
 if [[ "${1:-}" == "--dry-run" ]]; then

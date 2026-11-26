@@ -1,3 +1,10 @@
+# Redirect anni.sv-bottrop21.de subdomain to https://sv-bottrop21.de/anni/
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^anni\.sv-bottrop21\.de$ [NC]
+  RewriteRule ^(.*)$ https://sv-bottrop21.de/anni/$1 [R=301,L]
+</IfModule>
+
 # Never serve local config backups or SQL dumps if they end up in the web root.
 <FilesMatch "\.(sql|local\.php|example|md|log|pgn|tsv)$">
   <IfModule mod_authz_core.c>
