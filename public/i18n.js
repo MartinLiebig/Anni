@@ -43,6 +43,7 @@ const D = {
     eg_level: 'Stufe', eg_reset: 'Zurücksetzen', eg_w_wins: 'Weiß gewinnt', eg_draw: 'Remis', eg_correct: 'Richtig!', eg_wrong: 'Nicht ganz – versuch es nochmal!',
     eg_w_move: 'Weiß am Zug', eg_b_move: 'Schwarz am Zug', eg_try_board: 'Auf dem Brett ausprobieren',
     eg_mate: 'Schachmatt!', eg_stalemate: 'Patt – Remis!', eg_draw_pos: 'Unentschieden (Remis)!', eg_promoted: 'Bauer umgewandelt!',
+    eg_pdf: 'PDF-Arbeitsblatt',
   },
   en: {
     app: 'Chess Training', login: 'Log in', register: 'Register', logout: 'Log out',
@@ -88,6 +89,7 @@ const D = {
     eg_level: 'Level', eg_reset: 'Reset', eg_w_wins: 'White wins', eg_draw: 'Draw', eg_correct: 'Correct!', eg_wrong: 'Not quite – try again!',
     eg_w_move: 'White to move', eg_b_move: 'Black to move', eg_try_board: 'Play it out on board',
     eg_mate: 'Checkmate!', eg_stalemate: 'Stalemate – Draw!', eg_draw_pos: 'Draw!', eg_promoted: 'Pawn promoted!',
+    eg_pdf: 'PDF Handout',
   },
 };
 
