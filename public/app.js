@@ -460,7 +460,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
   main.querySelectorAll('[data-nag]').forEach((b) => { b.onclick = () => { const n = nodeAtPly(curPly()); if (n && n !== root) { T.toggleNag(n, +b.dataset.nag); noteChanged(); syncNote(); renderMoves(); } }; });
 
   const board = new Board($('board'), { onMove: userMove });
-  const msg = (cls, text) => { $('msg').className = 'msg ' + cls; $('msg').textContent = text; };
+  const msg = (cls, text) => { const el = $('msg'); el.className = 'msg'; void el.offsetWidth; el.className = 'msg ' + cls; el.textContent = text; };
   const positionAt = (p) => { const c = new Chess(); for (let i = 0; i < p; i++) c.move(game.moves[i]); return c; };
   let bookReady = false;
   function updateTheory(c) {
@@ -542,7 +542,7 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
       playExpected();
       S.busy = true;
       draw({ interactive: false });
-      msg('ok', t('correct'));
+      msg('ok', `✓ ${t('correct')}`);
       timer = setTimeout(advance, 350);
     } else {
       recordTried(r.san);
@@ -554,10 +554,10 @@ async function viewTrain(my, { repeat = false, skip = 0, fresh = false }) {
         playExpected();
         S.busy = true;
         draw({ interactive: false });
-        msg('bad', `${t('revealed')} ${expected}`);
+        msg('bad', `✗ ${t('revealed')} ${expected}`);
         timer = setTimeout(advance, 1500);
       } else {
-        msg('bad', `${t('wrong')} ${left} ${t('tries_left')}`);
+        msg('bad', `✗ ${t('wrong')} (${left} ${t(left === 1 ? 'try_left' : 'tries_left')})`);
         draw({ interactive: true });
       }
     }

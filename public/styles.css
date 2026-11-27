@@ -104,8 +104,10 @@ textarea { width: 100%; resize: vertical; }
 .game-layout.with-nav { --reserve: 205px; }
 .boardwrap { flex: 0 0 auto; width: clamp(320px, min(calc(100vh - var(--reserve)), 64vw), 1200px); }
 .side { flex: 1 1 320px; min-width: 0; }
-.msg { min-height: 2.3em; font-weight: 600; margin: 6px 0; }
-.msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+.msg { min-height: 2.5em; font-weight: 700; margin: 6px 0; display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: var(--radius-sm); border: 1px solid transparent; }
+.msg.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.msg.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); border-color: color-mix(in srgb, var(--bad) 45%, transparent); font-size: 1.04rem; animation: msg-shake .28s ease; }
+@keyframes msg-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 @media (max-width: 860px) {
   .top { position: static; padding: 8px 12px; gap: 6px 10px; }
   .brand .logo { width: 28px; height: 28px; font-size: 16px; }
